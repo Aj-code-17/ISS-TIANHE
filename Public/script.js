@@ -17,3 +17,19 @@ function updateSun() {
      globe.addLayer(nightLayer);
    }
    updateSun();
+// Fetch ISS position
+   async function fetchISS() {
+     const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+     const data = await response.json();
+     return { lat: data.latitude, lon: data.longitude };
+   }
+
+   // Update every 5 seconds
+   setInterval(async () => {
+     const issPos = await fetchISS();
+     // Add a marker on the globe
+     const issPlacemark = new WorldWind.Placemark(
+       new WorldWind.Position(issPos.lat, issPos.lon, 400000)
+     );
+     globe.addLayer(new WorldWind.RenderableLayer([issPlacemark]));
+   }, 5000);
