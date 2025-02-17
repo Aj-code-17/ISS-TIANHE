@@ -1,1 +1,22 @@
-
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3D Globe</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- 3D Globe Library -->
+  <script src="https://files.worldwind.arc.nasa.gov/artifactory/web/0.10.0/worldwind.min.js"></script>
+  <!-- 2D Map Library -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <!-- Sun Position Library -->
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.8.0/suncalc.min.js"></script>
+</head>
+<body>
+  <!-- 3D Globe -->
+  <div id="globe" style="width: 50%; height: 600px; float: left;"></div>
+  <!-- 2D Map -->
+  <div id="map" style="width: 50%; height: 600px; float: left;"></div>
+  
+  <script src="script.js"></script>
+</body>
+</html>
