@@ -62,8 +62,10 @@
                 return;
             }
 
-            const tle1 = "1 48274U 21035A   25049.19999273  .00039443  00000-0  47855-3 0  9990";
-            const tle2 = "2 48274  41.4673  25.1244 0005354 202.4532 157.6073 15.59840555217551";
+            // *** Corrected TLE data with regular spaces ***
+            const tle1 = "1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993";
+            const tle2 = "2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880";
+
             const satrec = satellite.twoline2satrec(tle1, tle2);
             const position = satellite.propagate(satrec, new Date());
 
