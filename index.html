@@ -11,6 +11,15 @@
 
 <body>
     <div id="map" style="width: 100%; height: 600px;"></div>
+    <div id="av-orbit-48274">
+        <script>
+            var avOrbitProperties48274 = {
+                size: 'medium',
+                lang: 'en'
+            };
+        </script>
+        <script src="https://astroviewer.net/widgets/widgets/orbit48274.js"></script>
+    </div>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         // Include Satellite.js library
@@ -30,7 +39,7 @@
         let issPath = [];
         const issPolyline = L.polyline([], { color: 'red' }).addTo(map);
 
-        // Tiangong Icon and Marker
+        // Tiangong Icon and Marker (using placeholder for now)
         const tiangongIcon = L.icon({
             iconUrl: 'tiangong.png', // Replace with your Tiangong icon
             iconSize: [50, 50]
@@ -55,28 +64,19 @@
             }
         }
 
-        // Tiangong Functions
-        function updateTiangongLocation() {
-            if (typeof satellite === 'undefined') {
-                setTimeout(updateTiangongLocation, 100);
-                return;
-            }
+        // Tiangong Functions (using AstroViewer widget)
+        // We'll update the marker's position based on the widget's data
+        function updateTiangongLocationFromWidget() {
+            const tiangongWidget = document.getElementById('av-orbit-48274');
+            if (tiangongWidget && tiangongWidget.latitude && tiangongWidget.longitude) {
+                const latitude = tiangongWidget.latitude;
+                const longitude = tiangongWidget.longitude;
 
-            // *** Corrected TLE data with regular spaces ***
-            const tle1 = "1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993";
-            const tle2 = "2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880";
-
-            const satrec = satellite.twoline2satrec(tle1, tle2);
-            const position = satellite.propagate(satrec, new Date());
-
-            if (position.position) {
-                const longitude = satellite.degreesLong(position.longitude);
-                const latitude = satellite.degreesLat(position.latitude);
                 tiangongMarker.setLatLng([latitude, longitude]);
-                tiangongPath.push([latitude, longitude]); // Correctly format for polyline
+                tiangongPath.push([latitude, longitude]);
                 tiangongPolyline.setLatLngs(tiangongPath);
             } else {
-                console.error("Error calculating Tiangong's position:", position);
+                setTimeout(updateTiangongLocationFromWidget, 100); // Check again soon
             }
         }
 
@@ -84,8 +84,8 @@
         updateISSLocation();
         setInterval(updateISSLocation, 5000);
 
-        updateTiangongLocation();
-        setInterval(updateTiangongLocation, 5000);
+        updateTiangongLocationFromWidget(); // Call the widget-based update function
+
     </script>
 </body>
 
