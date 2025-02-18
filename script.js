@@ -17,6 +17,37 @@ async function fetchTiangong() {
   // Parse TLE data here (example simplified)
   return { lat: data[0].MEAN_MOTION, lon: data[0].RA_OF_ASC_NODE };
 }
+let issLayer = new WorldWind.RenderableLayer("ISS");
+
+function updateISSPosition(lat, lon) {
+  issLayer.removeAllRenderables(); // Clear previous markers
+  const issPlacemark = new WorldWind.Placemark(
+    new WorldWind.Position(lat, lon, 400000),
+    false,
+    new WorldWind.PlacemarkAttributes({ imageSource: "iss-icon.png" })
+  );
+  issLayer.addRenderable(issPlacemark);
+  globe.addLayer(issLayer);
+}
+let pathPositions = [];
+function updatePath(lat, lon) {
+  pathPositions.push(new WorldWind.Position(lat, lon, 400000));
+  const path = new WorldWind.SurfacePolyline(pathPositions, 3);
+  path.attributes.outlineColor = WorldWind.Color.RED;
+  issLayer.addRenderable(path);
+}
+// Leaflet setup for ISS
+const issIcon = L.icon({ iconUrl: 'iss-icon.png', iconSize: [30, 30] });
+let issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
+let path = L.polyline([], { color: 'red' }).addTo(map);
+
+// Update both globe and map
+setInterval(async () => {
+  const issPos = await fetchISS();
+  updateISSPosition(issPos.lat, issPos.lon);
+  issMarker.setLatLng([issPos.lat, issPos.lon]);
+  path.addLatLng([issPos.lat, issPos.lon]);
+}, 5000);
 // Test ISS marker (fixed position)
 const issPlacemark = new WorldWind.Placemark(
   new WorldWind.Position(0, 0, 400000),
