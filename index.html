@@ -15,8 +15,10 @@
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const issIcon = L.icon({
-            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/International_Space_Station_logo.svg/1200px-International_Space_Station_logo.svg.png',
-            iconSize: [50, 50]
+            iconUrl: 'iss.png', // If the image is in the same folder
+    // OR
+    iconUrl: 'images/iss.png', // If the image is in an "images" subfolder
+    iconSize: [70, 50]
         });
         const issMarker = L.marker([0, 0], {
             icon: issIcon
@@ -32,12 +34,7 @@
             const location = await getISSLocation();
             issMarker.setLatLng(location);
         }
-        const issIcon = L.icon({
-    iconUrl: 'iss.png', // If the image is in the same folder
-    // OR
-    iconUrl: 'images/iss.png', // If the image is in an "images" subfolder
-    iconSize: [70, 50]
-});
+     
         updateISSLocation();
         setInterval(updateISSLocation, 5000);
     </script>
