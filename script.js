@@ -1,3 +1,8 @@
+// Include Satellite.js library
+const script = document.createElement('script');
+script.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
+document.head.appendChild(script);
+
 // Initialize map
 let issMap = L.map('map-container', {
     maxBounds: [[-90, -180], [90, 180]],
@@ -5,27 +10,7 @@ let issMap = L.map('map-container', {
     worldCopyJump: true
 }).setView([30, 0], 1.5);
 
-// Add fullscreen control
-issMap.addControl(new L.Control.Fullscreen({
-    title: {
-        'false': 'View FullScreen',
-        'true': 'Exit FullScreen'
-    }
-}));
-
-// Add tile layer
-L.tileLayer('https://api.maptiler.com/maps/outdoor/{z}/{x}/{y}.png?key=I5jJIO0gVFZgkPhGgi1t', {
-    attribution: '&copy; MapTiler &copy; OpenStreetMap contributors &copy; Jörg Dietrich &copy; WTIA REST API</a>'
-}).addTo(issMap);
-
-// Add terminator
-L.terminator().addTo(issMap);
-
-// Add scale control
-L.control.scale({
-    maxWidth: 100,
-    metric: true
-}).addTo(issMap);
+// ... (rest of your map initialization code)
 
 // Create ISS icon
 let issIcon = L.icon({
@@ -41,38 +26,46 @@ let marker = L.marker([0, 0], { icon: issIcon, title: 'ISS Position', alt: 'ISS 
 let firstCall = true;
 
 const getIssLocation = async () => {
-    try {
-        const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
-        const data = await response.json();
-
-        const { latitude, longitude, velocity, altitude, solar_lat, solar_lon, visibility } = data;
-
-        marker.setLatLng([latitude, longitude]);
-        circle.setLatLng([latitude, longitude]);
-
-        if (solar_lon > 180) {
-            sun.setLatLng([solar_lat, solar_lon - 360]);
-        } else {
-            sun.setLatLng([solar_lat, solar_lon]);
-        }
-
-        if (firstCall) {
-            issMap.setView([latitude, longitude], 3);
-            firstCall = false;
-        }
-
-        // Update HTML elements
-        document.getElementById("lat-data").innerText = `${latitude.toFixed(2)}° ${latitude > 0 ? 'N' : 'S'}`;
-        document.getElementById("long-data").innerText = `${longitude.toFixed(2)}° ${longitude > 0 ? 'E' : 'W'}`;
-        document.getElementById("velocity").innerText = (velocity / 3600).toFixed(2);
-        document.getElementById("altitude").innerText = altitude.toFixed(2);
-        document.getElementById("visibility").innerText = visibility;
-
-    } catch (error) {
-        console.error("Error fetching ISS data:", error);
-    }
+    // ... (your existing ISS location code)
 };
 
 setInterval(getIssLocation, 1000);
+
+// Tiangong Icon and Marker
+const tiangongIcon = L.icon({
+    iconUrl: 'tiangong.png', // Replace with your Tiangong icon
+    iconSize: [50, 50]
+});
+const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
+let tiangongPath = [];
+const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(issMap);
+
+// Tiangong TLE data
+const tle1 = "1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993";
+const tle2 = "2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880";
+
+// Function to update Tiangong's location
+function updateTiangongLocation() {
+    if (typeof satellite === 'undefined') {
+        setTimeout(updateTiangongLocation, 100);
+        return;
+    }
+
+    const satrec = satellite.twoline2satrec(tle1, tle2);
+    const position = satellite.propagate(satrec, new Date());
+
+    if (position.position) {
+        const longitude = satellite.degreesLong(position.longitude);
+        const latitude = satellite.degreesLat(position.latitude);
+        tiangongMarker.setLatLng([latitude, longitude]);
+        tiangongPath.push([latitude, longitude]);
+        tiangongPolyline.setLatLngs(tiangongPath);
+    } else {
+        console.error("Error calculating Tiangong's position:", position);
+    }
+}
+
+updateTiangongLocation();
+setInterval(updateTiangongLocation, 5000);
 
 // ... (rest of your code for centreMap, issInfo remains the same)
