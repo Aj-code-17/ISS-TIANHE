@@ -32,7 +32,7 @@ let worldwindPathPositions = [];
 const map = L.map('map').setView([0, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Use an online URL for the ISS icon
+// Use an online URL for the ISS icon (no local PNG needed)
 const issIconUrl = "https://img.icons8.com/color/48/iss.png";
 
 // Create a Leaflet marker and polyline for the ISS
@@ -44,14 +44,16 @@ let leafletPolyline = L.polyline([], { color: 'red' }).addTo(map);
 // ----- DATA FETCHING & UPDATES -----
 // Function to fetch ISS data using AllOrigins as a proxy
 async function fetchISS() {
-    // Original ISS API endpoint
     const apiUrl = 'https://api.wheretheiss.at/v1/satellites/25544';
-    // Use AllOrigins proxy; note the URL must be URL-encoded
+    // AllOrigins proxy URL (URL-encoded the target URL)
     const proxyUrl = `https://api.allorigins.hexocode.repl.co/get?disableCache=true&url=${encodeURIComponent(apiUrl)}`;
     try {
         const response = await fetch(proxyUrl);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
         const data = await response.json();
-        // AllOrigins returns a JSON with a "contents" property (a JSON string)
+        // AllOrigins returns a JSON object with a "contents" property (as a JSON string)
         const issData = JSON.parse(data.contents);
         console.log("Fetched ISS data:", issData);
         return { lat: issData.latitude, lon: issData.longitude };
@@ -63,10 +65,10 @@ async function fetchISS() {
 
 // Update WorldWind: update marker and path
 function updateWorldWind(issPos) {
-    // Clear the previous marker
+    // Clear previous marker
     issMarkerLayer.removeAllRenderables();
     
-    // Create a new placemark for the ISS (using an altitude of 400,000 meters)
+    // Create a new placemark for the ISS at an altitude of 400,000 meters
     const placemark = new WorldWind.Placemark(
         new WorldWind.Position(issPos.lat, issPos.lon, 400000),
         false,
