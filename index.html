@@ -82,6 +82,12 @@
                 } else {
                     console.error('Element with ID "position" not found.');
                 }
+
+                // Update Tiangong marker
+                tiangongMarker.setLatLng([position.satlatitude, position.satlongitude]);
+                tiangongPath.push([position.satlatitude, position.satlongitude]);
+                tiangongPolyline.setLatLngs(tiangongPath);
+
             } catch (error) {
                 console.error('Error fetching Tiangong position:', error);
             }
