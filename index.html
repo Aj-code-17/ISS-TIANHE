@@ -1,87 +1,58 @@
-<!-- HTML Containers -->
-<canvas id="globe" style="width: 50%; height: 600px;"></canvas>
-<div id="map" style="width: 50%; height: 600px; float: right;"></div>
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <title>Let's Build: ISS Tracking</title>
+    <script src="http://cdn.emitter.io/js/emitter.min.js" ></script>
+    <script src="http://www.webglearth.com/v2/api.js"></script>
+    <script>
+      var earth;
+      function initialize() {
+        earth = new WE.map('earth_div');
+        earth.setView([46.8011, 8.2266], 3);
+        WE.tileLayer('http://tileserver.maptiler.com/nasa/{z}/{x}/{y}.jpg', {
+          minZoom: 0,
+          maxZoom: 5,
+          attribution: 'NASA'
+        }).addTo(earth);
 
-<!-- Required Libraries -->
-<!-- WorldWind -->
-<script src="https://unpkg.com/worldwindjs@1.7.0/build/dist/worldwind.min.js"></script>
-<!-- Leaflet CSS & JS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<!-- Satellite.js (if needed) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
+        // Connect & subscribe to emitter
+        var client = emitter.connect({
+            secure: true
+        }); 
 
-<script>
-// ----- WORLDWIND SETUP -----
-const globe = new WorldWind.WorldWindow("globe");
-globe.addLayer(new WorldWind.BMNGLayer());
-globe.addLayer(new WorldWind.CompassLayer());
+        client.on('connect', function(){
+          console.log("connected")
+          client.subscribe({
+            key: "9tHGqKoKnG2DRPxf4Wl7olxOCUZ37F1p", 
+            channel: "iss/"
+          });
+        });
 
-const issMarkerLayer = new WorldWind.RenderableLayer("ISS Marker");
-const issPathLayer = new WorldWind.RenderableLayer("ISS Path");
-globe.addLayer(issMarkerLayer);
-globe.addLayer(issPathLayer);
-let worldwindPathPositions = [];
+        // Hook message handler
+        var lat = 0, lng = 0;
+        client.on('message', function(msg){
+          let message = msg.asObject();
+          console.log(message)
+          lat = message.iss_position.latitude;
+          lng = message.iss_position.longitude;
+        });
 
-// ----- LEAFLET SETUP -----
-const map = L.map('map').setView([0, 0], 2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var iss = WE.marker([0, 0], 'https://s3.amazonaws.com/cdn.misakai.com/www-temp/iss/iss.png', 64, 64).addTo(earth)
+        iss.bindPopup('<b>International Space Station!</b>');
 
-const issIconUrl = "https://img.icons8.com/color/48/iss.png";
-const issIcon = L.icon({ iconUrl: issIconUrl, iconSize: [30, 30] });
-let leafletMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
-let leafletPathCoordinates = [];
-let leafletPolyline = L.polyline([], { color: 'red' }).addTo(map);
-
-// ----- DATA FETCHING & UPDATES -----
-// Using cors-anywhere proxy - IMPORTANT: visit https://cors-anywhere.herokuapp.com/corsdemo to enable temporary access.
-async function fetchISS() {
-    const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-    const targetUrl = "https://api.wheretheiss.at/v1/satellites/25544";
-    try {
-        const response = await fetch(proxyUrl + targetUrl);
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-        const data = await response.json();
-        console.log("Fetched ISS data:", data);
-        return { lat: data.latitude, lon: data.longitude };
-    } catch (error) {
-        console.error("Error fetching ISS data:", error);
-        return null;
-    }
-}
-
-function updateWorldWind(issPos) {
-    issMarkerLayer.removeAllRenderables();
-    const placemark = new WorldWind.Placemark(
-        new WorldWind.Position(issPos.lat, issPos.lon, 400000),
-        false,
-        new WorldWind.PlacemarkAttributes({ imageSource: issIconUrl, imageScale: 0.5 })
-    );
-    issMarkerLayer.addRenderable(placemark);
-    worldwindPathPositions.push(new WorldWind.Position(issPos.lat, issPos.lon, 400000));
-    issPathLayer.removeAllRenderables();
-    if (worldwindPathPositions.length > 1) {
-        const polyline = new WorldWind.SurfacePolyline(worldwindPathPositions, new WorldWind.PolylineAttributes());
-        polyline.attributes.outlineColor = WorldWind.Color.RED;
-        polyline.attributes.outlineWidth = 2;
-        issPathLayer.addRenderable(polyline);
-    }
-}
-
-function updateLeaflet(issPos) {
-    leafletMarker.setLatLng([issPos.lat, issPos.lon]);
-    leafletPathCoordinates.push([issPos.lat, issPos.lon]);
-    leafletPolyline.setLatLngs(leafletPathCoordinates);
-}
-
-setInterval(async () => {
-    const issPos = await fetchISS();
-    if (issPos) {
-        updateWorldWind(issPos);
-        updateLeaflet(issPos);
-        console.log("Updated ISS position:", issPos);
-    }
-}, 5000);
-</script>
+        requestAnimationFrame(function animate(now) {
+            earth.setCenter([lat, lng]);
+            iss.setLatLng([lat, lng])
+            requestAnimationFrame(animate);
+        });
+      }
+    </script>
+    <style>
+      html, body{padding: 0; margin: 0;}
+      #earth_div{ top: 0; right: 0; bottom: 0; left: 0; position: absolute !important;}
+    </style>   
+  </head>
+  <body onload="initialize()">
+      <div id="earth_div"></div>
+  </body>
+</html>
