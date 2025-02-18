@@ -100,6 +100,30 @@
         fetchTiangongPosition(); // Call the N2YO API function
         setInterval(fetchTiangongPosition, 5000); // Update every 5 seconds
 
+        // Tiangong orbit calculation and display
+        const satellite = require('satellite.js');
+
+        const tle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
+        const tle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
+
+        const satrec = satellite.twoline2satrec(tle1, tle2);
+
+        const now = new Date();
+
+        const points = [];
+
+        for (let i = 0; i < 90; i++) {
+            const time = new Date(now.getTime() + i * 60 * 1000); // 90 minutes
+            const position = satellite.propagate(satrec, time);
+            if (position.position) { // Check if position is valid
+                const longitude = satellite.degreesLong(position.longitude);
+                const latitude = satellite.degreesLat(position.latitude);
+                points.push([latitude, longitude]);
+            }
+        }
+
+        const orbitPolyline = L.polyline(points, { color: 'blue' }).addTo(map);
+
 
     </script>
 </body>
