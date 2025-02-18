@@ -21,13 +21,21 @@
     satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
     document.head.appendChild(satScript);
 
-    // Initialize Leaflet Map and markers
-    const map = L.map('map').setView([0, 0], 2);
+    // Initialize Leaflet Map and disable interactions to keep it static
+    const map = L.map('map', {
+      dragging: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      zoomControl: false
+    }).setView([0, 0], 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     // ISS Icon and Marker (Live Tracking)
     const issIcon = L.icon({
-      iconUrl: 'iss.png', // Replace with your local ISS icon or use an HTTPS URL
+      iconUrl: 'iss.png', // Replace with your local ISS icon or an HTTPS URL
       iconSize: [70, 50]
     });
     const issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
@@ -36,7 +44,7 @@
 
     // Tiangong Icon and Marker (Live Tracking)
     const tiangongIcon = L.icon({
-      iconUrl: 'tiangong.png', // Replace with your Tiangong icon or use an HTTPS URL
+      iconUrl: 'tiangong.png', // Replace with your Tiangong icon or an HTTPS URL
       iconSize: [50, 50]
     });
     const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(map);
