@@ -37,12 +37,14 @@ let tiangongMarker = L.marker([0, 0], { icon: tiangongIcon }).addTo(map);
 let issPolyline = L.polyline([], { color: 'red' }).addTo(map);
 let tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(map);
 
-// Function to fetch ISS data
+// Function to fetch ISS data using an alternative CORS proxy
 async function fetchISS() {
-  const proxy = "https://corsproxy.io/?";
+  // Using an alternative proxy to avoid CORS issues:
+  const proxy = "https://thingproxy.freeboard.io/fetch/";
   try {
     const response = await fetch(proxy + 'https://api.wheretheiss.at/v1/satellites/25544');
     const data = await response.json();
+    console.log("ISS data:", data);
     return { lat: data.latitude, lon: data.longitude };
   } catch (error) {
     console.error("Error fetching ISS data:", error);
@@ -55,6 +57,7 @@ async function fetchTiangong() {
   try {
     const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?NAME=TIANHE&FORMAT=json');
     const data = await response.json();
+    console.log("Tiangong TLE data:", data);
     if (!data || data.length === 0 || !data[0].TLE_LINE1 || !data[0].TLE_LINE2) {
       console.error("Error: Invalid Tiangong TLE data.");
       return null;
@@ -70,10 +73,10 @@ async function fetchTiangong() {
     }
     const gmst = satellite.gstime(now);
     const geodeticCoords = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
-    return {
-      lat: satellite.degreesLat(geodeticCoords.latitude),
-      lon: satellite.degreesLong(geodeticCoords.longitude)
-    };
+    const lat = satellite.degreesLat(geodeticCoords.latitude);
+    const lon = satellite.degreesLong(geodeticCoords.longitude);
+    console.log("Tiangong calculated position:", lat, lon);
+    return { lat, lon };
   } catch (error) {
     console.error("Error fetching Tiangong data:", error);
     return null;
@@ -117,6 +120,8 @@ setInterval(async () => {
     updatePlacemark(issLayer, issPos.lat, issPos.lon, issIconUrl);
     updateGlobePath(issPathLayer, issGlobePathPositions, issPos.lat, issPos.lon, WorldWind.Color.RED);
     updateLeaflet(issMarker, issPolyline, issLeafletPath, issPos.lat, issPos.lon);
+  } else {
+    console.warn("No ISS position data available.");
   }
   
   // Update Tiangong data and visuals
@@ -125,6 +130,9 @@ setInterval(async () => {
     updatePlacemark(tiangongLayer, tiangongPos.lat, tiangongPos.lon, tiangongIconUrl);
     updateGlobePath(tiangongPathLayer, tiangongGlobePathPositions, tiangongPos.lat, tiangongPos.lon, WorldWind.Color.BLUE);
     updateLeaflet(tiangongMarker, tiangongPolyline, tiangongLeafletPath, tiangongPos.lat, tiangongPos.lon);
+  } else {
+    console.warn("No Tiangong position data available.");
   }
 }, 5000);
+
 
