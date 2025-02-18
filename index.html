@@ -58,14 +58,16 @@
 
         // Tiangong Functions (using N2YO API)
         async function fetchTiangongPosition() {
-            const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Replace with your N2YO.com API key
+            const apiKey = 'YOUR_API_KEY'; // Replace with your N2YO.com API key
             const noradId = 48274; // NORAD ID for Tiangong
             const observerLat = 0; // Your latitude
             const observerLng = 0; // Your longitude
             const observerAlt = 0; // Your altitude in meters
             const seconds = 1; // Number of seconds for prediction
 
-            const url = `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`;
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/'; // CORS Proxy URL
+            const url = `${proxyUrl}https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`;
+
 
             try {
                 const response = await fetch(url);
