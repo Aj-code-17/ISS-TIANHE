@@ -1,59 +1,40 @@
-﻿<!DOCTYPE html>
-<html>
-  <head>
-    <title>Let's Build: ISS Tracking</title>
-<script src="https://cdn.emitter.io/js/emitter.min.js"></script>
-<script src="https://www.webglearth.com/v2/api.js"></script>
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISS Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css"> </head>
+
+<body>
+    <div id="map" style="width: 100%; height: 600px;"></div>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
-      var earth;
-      function initialize() {
-        earth = new WE.map('earth_div');
-        earth.setView([46.8011, 8.2266], 3);
-        WE.tileLayer('http://tileserver.maptiler.com/nasa/{z}/{x}/{y}.jpg', {
-          minZoom: 0,
-          maxZoom: 5,
-          attribution: 'NASA'
-        }).addTo(earth);
-
-        // Connect & subscribe to emitter
-        var client = emitter.connect({
-            secure: true
-        }); 
-
-        client.on('connect', function(){
-          console.log("connected")
-          client.subscribe({
-            key: "9tHGqKoKnG2DRPxf4Wl7olxOCUZ37F1p", 
-            channel: "iss/"
-          });
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        const issIcon = L.icon({
+            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/International_Space_Station_logo.svg/1200px-International_Space_Station_logo.svg.png',
+            iconSize: [50, 50]
         });
+        const issMarker = L.marker([0, 0], {
+            icon: issIcon
+        }).addTo(map);
 
-        // Hook message handler
-        var lat = 0, lng = 0;
-        client.on('message', function(msg){
-          let message = msg.asObject();
-          console.log(message)
-          lat = message.iss_position.latitude;
-          lng = message.iss_position.longitude;
-        });
+        async function getISSLocation() {
+            const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+            const data = await response.json();
+            return [data.latitude, data.longitude];
+        }
 
-        var iss = WE.marker([0, 0], 'https://s3.amazonaws.com/cdn.misakai.com/www-temp/iss/iss.png', 64, 64).addTo(earth)
-        iss.bindPopup('<b>International Space Station!</b>');
-
-        requestAnimationFrame(function animate(now) {
-            earth.setCenter([lat, lng]);
-            iss.setLatLng([lat, lng])
-            requestAnimationFrame(animate);
-        });
-      }
+        async function updateISSLocation() {
+            const location = await getISSLocation();
+            issMarker.setLatLng(location);
+        }
+        updateISSLocation();
+        setInterval(updateISSLocation, 5000);
     </script>
-    <style>
-      html, body{padding: 0; margin: 0;}
-      #earth_div{ top: 0; right: 0; bottom: 0; left: 0; position: absolute !important;}
-    </style>   
-  </head>
-  <body onload="initialize()">
-      <div id="earth_div"></div>
-  </body>
+</body>
+
 </html>
