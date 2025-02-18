@@ -13,73 +13,54 @@
 
 <script>
 // ----- WORLDWIND SETUP -----
-// Use the canvas element with id "globe"
 const globe = new WorldWind.WorldWindow("globe");
 globe.addLayer(new WorldWind.BMNGLayer());
 globe.addLayer(new WorldWind.CompassLayer());
 
-// Create WorldWind layers for the ISS marker and its path
 const issMarkerLayer = new WorldWind.RenderableLayer("ISS Marker");
 const issPathLayer = new WorldWind.RenderableLayer("ISS Path");
 globe.addLayer(issMarkerLayer);
 globe.addLayer(issPathLayer);
-
-// Array to store path positions for WorldWind
 let worldwindPathPositions = [];
 
 // ----- LEAFLET SETUP -----
-// Initialize the Leaflet map in the element with id "map"
 const map = L.map('map').setView([0, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Use an online URL for the ISS icon (no local PNG needed)
 const issIconUrl = "https://img.icons8.com/color/48/iss.png";
-
-// Create a Leaflet marker and polyline for the ISS
 const issIcon = L.icon({ iconUrl: issIconUrl, iconSize: [30, 30] });
 let leafletMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
 let leafletPathCoordinates = [];
 let leafletPolyline = L.polyline([], { color: 'red' }).addTo(map);
 
 // ----- DATA FETCHING & UPDATES -----
-// Function to fetch ISS data using AllOrigins as a proxy
+// Using cors-anywhere proxy - IMPORTANT: visit https://cors-anywhere.herokuapp.com/corsdemo to enable temporary access.
 async function fetchISS() {
-    const apiUrl = 'https://api.wheretheiss.at/v1/satellites/25544';
-    // AllOrigins proxy URL (URL-encoded the target URL)
-    const proxyUrl = `https://api.allorigins.hexocode.repl.co/get?disableCache=true&url=${encodeURIComponent(apiUrl)}`;
+    const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+    const targetUrl = "https://api.wheretheiss.at/v1/satellites/25544";
     try {
-        const response = await fetch(proxyUrl);
+        const response = await fetch(proxyUrl + targetUrl);
         if (!response.ok) {
-            throw new Error('Network response was not ok');
+            throw new Error("Network response was not ok");
         }
         const data = await response.json();
-        // AllOrigins returns a JSON object with a "contents" property (as a JSON string)
-        const issData = JSON.parse(data.contents);
-        console.log("Fetched ISS data:", issData);
-        return { lat: issData.latitude, lon: issData.longitude };
+        console.log("Fetched ISS data:", data);
+        return { lat: data.latitude, lon: data.longitude };
     } catch (error) {
         console.error("Error fetching ISS data:", error);
         return null;
     }
 }
 
-// Update WorldWind: update marker and path
 function updateWorldWind(issPos) {
-    // Clear previous marker
     issMarkerLayer.removeAllRenderables();
-    
-    // Create a new placemark for the ISS at an altitude of 400,000 meters
     const placemark = new WorldWind.Placemark(
         new WorldWind.Position(issPos.lat, issPos.lon, 400000),
         false,
         new WorldWind.PlacemarkAttributes({ imageSource: issIconUrl, imageScale: 0.5 })
     );
     issMarkerLayer.addRenderable(placemark);
-    
-    // Add the new position to the path array
     worldwindPathPositions.push(new WorldWind.Position(issPos.lat, issPos.lon, 400000));
-    
-    // Redraw the path if there are at least two points
     issPathLayer.removeAllRenderables();
     if (worldwindPathPositions.length > 1) {
         const polyline = new WorldWind.SurfacePolyline(worldwindPathPositions, new WorldWind.PolylineAttributes());
@@ -89,14 +70,12 @@ function updateWorldWind(issPos) {
     }
 }
 
-// Update Leaflet: update marker and polyline
 function updateLeaflet(issPos) {
     leafletMarker.setLatLng([issPos.lat, issPos.lon]);
     leafletPathCoordinates.push([issPos.lat, issPos.lon]);
     leafletPolyline.setLatLngs(leafletPathCoordinates);
 }
 
-// Main update loop: fetch and update every 5 seconds
 setInterval(async () => {
     const issPos = await fetchISS();
     if (issPos) {
