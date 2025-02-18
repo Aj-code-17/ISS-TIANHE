@@ -65,8 +65,8 @@
             const observerAlt = 0; // Your altitude in meters
             const seconds = 1; // Number of seconds for prediction
 
-            const proxyUrl = 'https://cors-anywhere.herokuapp.com/'; // CORS Proxy URL
-            const url = `${proxyUrl}https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`;
+            const proxyUrl = 'https://corsproxy.io/?'; // Replace with your proxy URL
+const url = `<span class="math-inline">\{proxyUrl\}https\://api\.n2yo\.com/rest/v1/satellite/positions/</span>{noradId}/<span class="math-inline">\{observerLat\}/</span>{observerLng}/<span class="math-inline">\{observerAlt\}/</span>{seconds}/&apiKey=${apiKey}`;
 
 
             try {
