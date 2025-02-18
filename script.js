@@ -1,22 +1,19 @@
-// 1. Initialize the 3D Globe
+// Initialize 3D Globe
 const globe = new WorldWind.WorldWindow("globe");
+globe.addLayer(new WorldWind.BMNGLayer());
+globe.addLayer(new WorldWind.CompassLayer());
 
-// Add Earth texture and grid
-globe.addLayer(new WorldWind.BMNGLayer()); // Earth image
-globe.addLayer(new WorldWind.CoordinatesDisplayLayer(globe)); // Lat/long grid
-globe.addLayer(new WorldWind.CompassLayer()); // Compass
-
-// 2. Initialize the 2D Map
+// Initialize 2D Map
 const map = L.map('map').setView([0, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// 3. Add a test marker (to confirm the globe works)
-const testPlacemark = new WorldWind.Placemark(
-  new WorldWind.Position(0, 0, 0), // Equator
+// Test ISS marker (fixed position)
+const issPlacemark = new WorldWind.Placemark(
+  new WorldWind.Position(0, 0, 400000),
   false,
   new WorldWind.PlacemarkAttributes({
-    imageSource: "https://img.icons8.com/color/48/marker.png", // Test icon
+    imageSource: "https://img.icons8.com/color/48/iss.png",
     imageScale: 0.5
   })
 );
-globe.addLayer(new WorldWind.RenderableLayer([testPlacemark]));
+globe.addLayer(new WorldWind.RenderableLayer([issPlacemark]));
