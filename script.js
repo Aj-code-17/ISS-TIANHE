@@ -5,19 +5,57 @@ globe.addLayer(new WorldWind.CompassLayer()); // Add compass
 // Initialize 2D Map
 const map = L.map('map').setView([0, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
 async function fetchISS() {
   const proxy = "https://corsproxy.io/?";
-  const response = await fetch(proxy + 'https://api.wheretheiss.at/v1/satellites/25544');
-  const data = await response.json();
-  return { lat: data.latitude, lon: data.longitude };
+  try {
+    const response = await fetch(proxy + 'https://api.wheretheiss.at/v1/satellites/25544');
+    const data = await response.json();
+    return { lat: data.latitude, lon: data.longitude };
+  } catch (error) {
+    console.error("Error fetching ISS data:", error);
+    return null;
+  }
 }
+
 async function fetchTiangong() {
-  const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?NAME=TIANHE&FORMAT=json');
-  const data = await response.json();
-  // Parse TLE data here (example simplified)
-  return { lat: data[0].MEAN_MOTION, lon: data[0].RA_OF_ASC_NODE };
+  try {
+    const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?NAME=TIANHE&FORMAT=json');
+    const data = await response.json();
+    
+    if (!data || data.length === 0) {
+      console.error("Error: No Tiangong data received.");
+      return null;
+    }
+    
+    // Convert TLE data to Lat/Lon using satellite.js
+    const tleLine1 = data[0].TLE_LINE1;
+    const tleLine2 = data[0].TLE_LINE2;
+    const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
+    const now = new Date();
+    const positionAndVelocity = satellite.propagate(satrec, now);
+    
+    if (!positionAndVelocity.position) {
+      console.error("Error: Could not calculate position for Tiangong.");
+      return null;
+    }
+    
+    const gmst = satellite.gstime(now);
+    const geodeticCoords = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+    
+    return {
+      lat: satellite.degreesLat(geodeticCoords.latitude),
+      lon: satellite.degreesLong(geodeticCoords.longitude)
+    };
+  } catch (error) {
+    console.error("Error fetching Tiangong data:", error);
+    return null;
+  }
 }
+
+// WorldWind ISS Layer Setup
 let issLayer = new WorldWind.RenderableLayer("ISS");
+globe.addLayer(issLayer);
 
 function updateISSPosition(lat, lon) {
   issLayer.removeAllRenderables(); // Clear previous markers
@@ -27,8 +65,8 @@ function updateISSPosition(lat, lon) {
     new WorldWind.PlacemarkAttributes({ imageSource: "iss-icon.png" })
   );
   issLayer.addRenderable(issPlacemark);
-  globe.addLayer(issLayer);
 }
+
 let pathPositions = [];
 function updatePath(lat, lon) {
   pathPositions.push(new WorldWind.Position(lat, lon, 400000));
@@ -36,19 +74,28 @@ function updatePath(lat, lon) {
   path.attributes.outlineColor = WorldWind.Color.RED;
   issLayer.addRenderable(path);
 }
-// Leaflet setup for ISS
+
+// Leaflet Setup for ISS
 const issIcon = L.icon({ iconUrl: 'iss-icon.png', iconSize: [30, 30] });
 let issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
 let path = L.polyline([], { color: 'red' }).addTo(map);
 
-// Update both globe and map
+// Update ISS & Tiangong Position Every 5 Seconds
 setInterval(async () => {
   const issPos = await fetchISS();
-  updateISSPosition(issPos.lat, issPos.lon);
-  issMarker.setLatLng([issPos.lat, issPos.lon]);
-  path.addLatLng([issPos.lat, issPos.lon]);
+  if (issPos) {
+    updateISSPosition(issPos.lat, issPos.lon);
+    issMarker.setLatLng([issPos.lat, issPos.lon]);
+    path.setLatLngs([...path.getLatLngs(), [issPos.lat, issPos.lon]]);
+  }
+
+  const tiangongPos = await fetchTiangong();
+  if (tiangongPos) {
+    console.log("Tiangong Position:", tiangongPos.lat, tiangongPos.lon);
+  }
 }, 5000);
-// Test ISS marker (fixed position)
+
+// Initial Test ISS Marker
 const issPlacemark = new WorldWind.Placemark(
   new WorldWind.Position(0, 0, 400000),
   false,
@@ -57,4 +104,5 @@ const issPlacemark = new WorldWind.Placemark(
     imageScale: 0.5
   })
 );
-globe.addLayer(new WorldWind.RenderableLayer([issPlacemark]));
+issLayer.addRenderable(issPlacemark);
+
