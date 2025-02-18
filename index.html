@@ -32,6 +32,12 @@
             const location = await getISSLocation();
             issMarker.setLatLng(location);
         }
+        const issIcon = L.icon({
+    iconUrl: 'iss.png', // If the image is in the same folder
+    // OR
+    iconUrl: 'images/iss.png', // If the image is in an "images" subfolder
+    iconSize: [70, 50]
+});
         updateISSLocation();
         setInterval(updateISSLocation, 5000);
     </script>
