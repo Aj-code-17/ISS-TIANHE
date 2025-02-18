@@ -116,15 +116,16 @@
             const time = new Date(now.getTime() + i * 60 * 1000); // 90 minutes
             const position = satellite.propagate(satrec, time);
             if (position.position) { // Check if position is valid
-                const longitude = satellite.degreesLong(position.longitude);
-                const latitude = satellite.degreesLat(position.latitude);
-                points.push([latitude, longitude]);
+                const longitudeDegrees = satellite.degreesLong(position.longitude);
+                const latitudeDegrees = satellite.degreesLat(position.latitude);
+                points.push([latitudeDegrees, longitudeDegrees]);
             }
         }
 
         const orbitPolyline = L.polyline(points, { color: 'blue' }).addTo(map);
 
-
+        console.log("Number of points in orbit:", points.length); // Check if points are being generated
+        console.log("Orbit Polyline:", orbitPolyline); // Check if polyline is being created
     </script>
 </body>
 
