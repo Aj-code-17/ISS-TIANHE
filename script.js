@@ -1,7 +1,6 @@
-// Initialize 3D Globe
 const globe = new WorldWind.WorldWindow("globe");
-globe.addLayer(new WorldWind.BMNGLayer());
-globe.addLayer(new WorldWind.CompassLayer());
+globe.addLayer(new WorldWind.BMNGLayer()); // Base layer
+globe.addLayer(new WorldWind.CompassLayer()); // Add compass
 
 // Initialize 2D Map
 const map = L.map('map').setView([0, 0], 2);
