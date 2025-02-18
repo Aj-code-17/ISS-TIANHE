@@ -11,6 +11,12 @@ async function fetchISS() {
   const data = await response.json();
   return { lat: data.latitude, lon: data.longitude };
 }
+async function fetchTiangong() {
+  const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?NAME=TIANHE&FORMAT=json');
+  const data = await response.json();
+  // Parse TLE data here (example simplified)
+  return { lat: data[0].MEAN_MOTION, lon: data[0].RA_OF_ASC_NODE };
+}
 // Test ISS marker (fixed position)
 const issPlacemark = new WorldWind.Placemark(
   new WorldWind.Position(0, 0, 400000),
