@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISS Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css">
+</head>
 
 <body>
     <div id="map" style="width: 100%; height: 600px;"></div>
@@ -19,8 +20,12 @@
             iconSize: [70, 50]
         });
 
-        // This is the missing part: create the marker!
         const issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
+
+        // Array to store ISS locations for the path
+        let issPath = [];
+        const polyline = L.polyline([], { color: 'red' }).addTo(map);
+
 
         async function getISSLocation() {
             const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
@@ -30,8 +35,14 @@
 
         async function updateISSLocation() {
             const location = await getISSLocation();
-            if (location) { // Check if location is successfully fetched
+            if (location) {
                 issMarker.setLatLng(location);
+
+                // Add the new location to the path
+                issPath.push(location);
+
+                // Update the polyline with the new path
+                polyline.setLatLngs(issPath);
             }
         }
 
