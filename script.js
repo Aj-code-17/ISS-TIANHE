@@ -31,6 +31,7 @@ const getIssLocation = async () => {
 
 setInterval(getIssLocation, 1000);
 
+
 // Tiangong Icon and Marker
 const tiangongIcon = L.icon({
     iconUrl: 'tiangong.png', // Replace with your Tiangong icon
@@ -40,32 +41,41 @@ const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon, title: 'Tiangong' 
 let tiangongPath = [];
 const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(issMap);
 
-// Tiangong TLE data
-const tle1 = "1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993";
-const tle2 = "2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880";
 
-// Function to update Tiangong's location
-function updateTiangongLocation() {
-    if (typeof satellite === 'undefined') {
-        setTimeout(updateTiangongLocation, 100);
-        return;
-    }
 
-    const satrec = satellite.twoline2satrec(tle1, tle2);
-    const position = satellite.propagate(satrec, new Date());
+// Tiangong Functions (using N2YO API)
+async function fetchTiangongPosition() {
+    const apiKey = ''; // Replace with your N2YO.com API key
+    const noradId = 48274; // NORAD ID for Tiangong
+    const observerLat = 0; // Your latitude
+    const observerLng = 0; // Your longitude
+    const observerAlt = 0; // Your altitude in meters
+    const seconds = 1; // Number of seconds for prediction
 
-    if (position.position) {
-        const longitude = satellite.degreesLong(position.longitude);
-        const latitude = satellite.degreesLat(position.latitude);
+    const url = `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const position = data.positions[0];
+        const latitude = position.satlatitude;
+        const longitude = position.satlongitude;
+
         tiangongMarker.setLatLng([latitude, longitude]);
         tiangongPath.push([latitude, longitude]);
         tiangongPolyline.setLatLngs(tiangongPath);
-    } else {
-        console.error("Error calculating Tiangong's position:", position);
+
+    } catch (error) {
+        console.error('Error fetching Tiangong position:', error);
     }
 }
 
-updateTiangongLocation();
-setInterval(updateTiangongLocation, 5000);
+
+// Initial Calls and Intervals
+updateISSLocation(); // If you have this function for ISS
+setInterval(updateISSLocation, 5000); // If you have this interval for ISS
+
+fetchTiangongPosition(); // Call the N2YO API function
+setInterval(fetchTiangongPosition, 5000); // Update every 5 seconds
 
 // ... (rest of your code for centreMap, issInfo remains the same)
