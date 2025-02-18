@@ -24,11 +24,14 @@ let tiangongGlobePathPositions = [];
 let issLeafletPath = [];
 let tiangongLeafletPath = [];
 
-// Define icons for markers (ensure these files are accessible)
-const issIcon = L.icon({ iconUrl: 'iss-icon.png', iconSize: [30, 30] });
-const tiangongIcon = L.icon({ iconUrl: 'tiangong-icon.png', iconSize: [30, 30] });
+// Use online URLs for the icons
+const issIconUrl = "https://img.icons8.com/color/48/iss.png";
+const tiangongIconUrl = "https://via.placeholder.com/48.png?text=Tiangong";
 
 // Create Leaflet markers and polylines for each satellite
+const issIcon = L.icon({ iconUrl: issIconUrl, iconSize: [30, 30] });
+const tiangongIcon = L.icon({ iconUrl: tiangongIconUrl, iconSize: [30, 30] });
+
 let issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
 let tiangongMarker = L.marker([0, 0], { icon: tiangongIcon }).addTo(map);
 let issPolyline = L.polyline([], { color: 'red' }).addTo(map);
@@ -111,7 +114,7 @@ setInterval(async () => {
   // Update ISS data and visuals
   const issPos = await fetchISS();
   if (issPos) {
-    updatePlacemark(issLayer, issPos.lat, issPos.lon, "iss-icon.png");
+    updatePlacemark(issLayer, issPos.lat, issPos.lon, issIconUrl);
     updateGlobePath(issPathLayer, issGlobePathPositions, issPos.lat, issPos.lon, WorldWind.Color.RED);
     updateLeaflet(issMarker, issPolyline, issLeafletPath, issPos.lat, issPos.lon);
   }
@@ -119,7 +122,7 @@ setInterval(async () => {
   // Update Tiangong data and visuals
   const tiangongPos = await fetchTiangong();
   if (tiangongPos) {
-    updatePlacemark(tiangongLayer, tiangongPos.lat, tiangongPos.lon, "tiangong-icon.png");
+    updatePlacemark(tiangongLayer, tiangongPos.lat, tiangongPos.lon, tiangongIconUrl);
     updateGlobePath(tiangongPathLayer, tiangongGlobePathPositions, tiangongPos.lat, tiangongPos.lon, WorldWind.Color.BLUE);
     updateLeaflet(tiangongMarker, tiangongPolyline, tiangongLeafletPath, tiangongPos.lat, tiangongPos.lon);
   }
