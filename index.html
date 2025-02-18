@@ -1,19 +1,101 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>3D Globe</title>
-  <link rel="stylesheet" href="style.css">
- <!-- Replace old NASA script with WorldWindJS -->
-<script src="https://unpkg.com/worldwindjs@1.7.0/build/dist/worldwind.min.js"></script> 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.8.0/suncalc.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
+<!-- HTML -->
+<canvas id="globe" style="width: 50%; height: 600px;"></canvas>
+<div id="map" style="width: 50%; height: 600px; float: right;"></div>
 
-</head>
-<body>
-  <canvas id="globe" style="width: 50%; height: 600px;"></canvas>
-  <div id="map" style="width: 50%; height: 600px; float: left;"></div>
-  <script src="script.js"></script>
-</body>
-</html>
+<!-- Required Libraries -->
+<!-- WorldWind -->
+<script src="https://unpkg.com/worldwindjs@1.7.0/build/dist/worldwind.min.js"></script>
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<!-- Satellite.js (if needed later) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
+
+<script>
+// ----- WORLDWIND SETUP -----
+// Use your existing canvas element with id="globe"
+const globe = new WorldWind.WorldWindow("globe");
+globe.addLayer(new WorldWind.BMNGLayer());
+globe.addLayer(new WorldWind.CompassLayer());
+
+// Create separate WorldWind layers for the ISS marker and its path
+const issMarkerLayer = new WorldWind.RenderableLayer("ISS Marker");
+const issPathLayer = new WorldWind.RenderableLayer("ISS Path");
+globe.addLayer(issMarkerLayer);
+globe.addLayer(issPathLayer);
+
+// Array to store path positions for WorldWind
+let worldwindPathPositions = [];
+
+// ----- LEAFLET SETUP -----
+// Initialize the Leaflet map in the element with id="map"
+const map = L.map('map').setView([0, 0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// Use an online URL for the ISS icon so no local PNG is needed
+const issIconUrl = "https://img.icons8.com/color/48/iss.png";
+
+// Create a Leaflet marker and polyline for the ISS
+const issIcon = L.icon({ iconUrl: issIconUrl, iconSize: [30, 30] });
+let leafletMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
+let leafletPathCoordinates = [];
+let leafletPolyline = L.polyline([], { color: 'red' }).addTo(map);
+
+// ----- DATA FETCHING & UPDATES -----
+// Function to fetch ISS data using a CORS proxy
+async function fetchISS() {
+    const proxy = "https://thingproxy.freeboard.io/fetch/";
+    try {
+        const response = await fetch(proxy + 'https://api.wheretheiss.at/v1/satellites/25544');
+        const data = await response.json();
+        console.log("Fetched ISS data:", data);
+        return { lat: data.latitude, lon: data.longitude };
+    } catch (error) {
+        console.error("Error fetching ISS data:", error);
+        return null;
+    }
+}
+
+// Update WorldWind: remove previous marker, add new placemark, and update path
+function updateWorldWind(issPos) {
+    // Remove any existing ISS marker
+    issMarkerLayer.removeAllRenderables();
+    
+    // Create a new placemark for the ISS at an altitude of 400,000 meters
+    const placemark = new WorldWind.Placemark(
+        new WorldWind.Position(issPos.lat, issPos.lon, 400000),
+        false,
+        new WorldWind.PlacemarkAttributes({ imageSource: issIconUrl, imageScale: 0.5 })
+    );
+    issMarkerLayer.addRenderable(placemark);
+    
+    // Append the new position to the path array
+    worldwindPathPositions.push(new WorldWind.Position(issPos.lat, issPos.lon, 400000));
+    
+    // Update the path layer (draw a polyline if there are at least 2 points)
+    issPathLayer.removeAllRenderables();
+    if (worldwindPathPositions.length > 1) {
+        const polyline = new WorldWind.SurfacePolyline(worldwindPathPositions, new WorldWind.PolylineAttributes());
+        polyline.attributes.outlineColor = WorldWind.Color.RED;
+        polyline.attributes.outlineWidth = 2;
+        issPathLayer.addRenderable(polyline);
+    }
+}
+
+// Update Leaflet: move the marker and update the path polyline
+function updateLeaflet(issPos) {
+    leafletMarker.setLatLng([issPos.lat, issPos.lon]);
+    leafletPathCoordinates.push([issPos.lat, issPos.lon]);
+    leafletPolyline.setLatLngs(leafletPathCoordinates);
+}
+
+// Main update loop: fetch and update every 5 seconds
+setInterval(async () => {
+    const issPos = await fetchISS();
+    if (issPos) {
+        updateWorldWind(issPos);
+        updateLeaflet(issPos);
+        console.log("Updated ISS position:", issPos);
+    }
+}, 5000);
+</script>
