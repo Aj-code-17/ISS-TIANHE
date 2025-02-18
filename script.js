@@ -1,138 +1,87 @@
-// Setup WorldWind Globe and Layers
+// ----- WORLDWIND SETUP -----
+// Create a WorldWind globe in the element with id="globe"
 const globe = new WorldWind.WorldWindow("globe");
 globe.addLayer(new WorldWind.BMNGLayer());
 globe.addLayer(new WorldWind.CompassLayer());
 
-// Create separate layers for each satellite’s marker and path
-const issLayer = new WorldWind.RenderableLayer("ISS");
-const tiangongLayer = new WorldWind.RenderableLayer("Tiangong");
+// Create separate WorldWind layers for the ISS marker and its path
+const issMarkerLayer = new WorldWind.RenderableLayer("ISS Marker");
 const issPathLayer = new WorldWind.RenderableLayer("ISS Path");
-const tiangongPathLayer = new WorldWind.RenderableLayer("Tiangong Path");
-
-globe.addLayer(issLayer);
-globe.addLayer(tiangongLayer);
+globe.addLayer(issMarkerLayer);
 globe.addLayer(issPathLayer);
-globe.addLayer(tiangongPathLayer);
 
-// Initialize Leaflet Map
+// Array to store path positions for WorldWind
+let worldwindPathPositions = [];
+
+// ----- LEAFLET SETUP -----
+// Initialize the Leaflet map in the element with id="map"
 const map = L.map('map').setView([0, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Arrays to store path coordinates for WorldWind and Leaflet
-let issGlobePathPositions = [];
-let tiangongGlobePathPositions = [];
-let issLeafletPath = [];
-let tiangongLeafletPath = [];
-
-// Use online URLs for the icons
+// Use an online URL for the ISS icon so no local PNG is needed
 const issIconUrl = "https://img.icons8.com/color/48/iss.png";
-const tiangongIconUrl = "https://via.placeholder.com/48.png?text=Tiangong";
 
-// Create Leaflet markers and polylines for each satellite
+// Create a Leaflet marker and polyline for the ISS
 const issIcon = L.icon({ iconUrl: issIconUrl, iconSize: [30, 30] });
-const tiangongIcon = L.icon({ iconUrl: tiangongIconUrl, iconSize: [30, 30] });
+let leafletMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
+let leafletPathCoordinates = [];
+let leafletPolyline = L.polyline([], { color: 'red' }).addTo(map);
 
-let issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
-let tiangongMarker = L.marker([0, 0], { icon: tiangongIcon }).addTo(map);
-let issPolyline = L.polyline([], { color: 'red' }).addTo(map);
-let tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(map);
-
-// Function to fetch ISS data using an alternative CORS proxy
+// ----- DATA FETCHING & UPDATES -----
+// Function to fetch ISS data using a CORS proxy
 async function fetchISS() {
-  // Using an alternative proxy to avoid CORS issues:
-  const proxy = "https://thingproxy.freeboard.io/fetch/";
-  try {
-    const response = await fetch(proxy + 'https://api.wheretheiss.at/v1/satellites/25544');
-    const data = await response.json();
-    console.log("ISS data:", data);
-    return { lat: data.latitude, lon: data.longitude };
-  } catch (error) {
-    console.error("Error fetching ISS data:", error);
-    return null;
-  }
-}
-
-// Function to fetch Tiangong data using TLE and satellite.js
-async function fetchTiangong() {
-  try {
-    const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?NAME=TIANHE&FORMAT=json');
-    const data = await response.json();
-    console.log("Tiangong TLE data:", data);
-    if (!data || data.length === 0 || !data[0].TLE_LINE1 || !data[0].TLE_LINE2) {
-      console.error("Error: Invalid Tiangong TLE data.");
-      return null;
+    const proxy = "https://thingproxy.freeboard.io/fetch/";
+    try {
+        const response = await fetch(proxy + 'https://api.wheretheiss.at/v1/satellites/25544');
+        const data = await response.json();
+        console.log("Fetched ISS data:", data);
+        return { lat: data.latitude, lon: data.longitude };
+    } catch (error) {
+        console.error("Error fetching ISS data:", error);
+        return null;
     }
-    const tleLine1 = data[0].TLE_LINE1;
-    const tleLine2 = data[0].TLE_LINE2;
-    const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
-    const now = new Date();
-    const positionAndVelocity = satellite.propagate(satrec, now);
-    if (!positionAndVelocity.position) {
-      console.error("Error: Could not calculate position for Tiangong.");
-      return null;
+}
+
+// Update WorldWind: remove previous marker, add new placemark, and update path
+function updateWorldWind(issPos) {
+    // Remove any existing ISS marker
+    issMarkerLayer.removeAllRenderables();
+    
+    // Create a new placemark for the ISS
+    const placemark = new WorldWind.Placemark(
+        new WorldWind.Position(issPos.lat, issPos.lon, 400000), // altitude in meters
+        false,
+        new WorldWind.PlacemarkAttributes({ imageSource: issIconUrl, imageScale: 0.5 })
+    );
+    issMarkerLayer.addRenderable(placemark);
+    
+    // Append the new position to the path array
+    worldwindPathPositions.push(new WorldWind.Position(issPos.lat, issPos.lon, 400000));
+    
+    // Update the path layer
+    issPathLayer.removeAllRenderables();
+    if (worldwindPathPositions.length > 1) {
+        const polyline = new WorldWind.SurfacePolyline(worldwindPathPositions, new WorldWind.PolylineAttributes());
+        polyline.attributes.outlineColor = WorldWind.Color.RED;
+        polyline.attributes.outlineWidth = 2;
+        issPathLayer.addRenderable(polyline);
     }
-    const gmst = satellite.gstime(now);
-    const geodeticCoords = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
-    const lat = satellite.degreesLat(geodeticCoords.latitude);
-    const lon = satellite.degreesLong(geodeticCoords.longitude);
-    console.log("Tiangong calculated position:", lat, lon);
-    return { lat, lon };
-  } catch (error) {
-    console.error("Error fetching Tiangong data:", error);
-    return null;
-  }
 }
 
-// Update the placemark for a satellite on WorldWind
-function updatePlacemark(layer, lat, lon, iconUrl) {
-  // Clear only the placemark (not the path layer)
-  layer.removeAllRenderables();
-  const placemark = new WorldWind.Placemark(
-    new WorldWind.Position(lat, lon, 400000),
-    false,
-    new WorldWind.PlacemarkAttributes({ imageSource: iconUrl })
-  );
-  layer.addRenderable(placemark);
+// Update Leaflet: move the marker and update the path polyline
+function updateLeaflet(issPos) {
+    leafletMarker.setLatLng([issPos.lat, issPos.lon]);
+    leafletPathCoordinates.push([issPos.lat, issPos.lon]);
+    leafletPolyline.setLatLngs(leafletPathCoordinates);
 }
 
-// Update the path for a satellite on WorldWind
-function updateGlobePath(pathLayer, pathPositions, lat, lon, color) {
-  pathPositions.push(new WorldWind.Position(lat, lon, 400000));
-  pathLayer.removeAllRenderables();
-  const polyline = new WorldWind.SurfacePolyline(pathPositions, new WorldWind.PolylineAttributes());
-  polyline.attributes.outlineColor = color;
-  polyline.attributes.outlineWidth = 2;
-  pathLayer.addRenderable(polyline);
-}
-
-// Update Leaflet marker and path for a satellite
-function updateLeaflet(marker, polyline, leafletPath, lat, lon) {
-  marker.setLatLng([lat, lon]);
-  leafletPath.push([lat, lon]);
-  polyline.setLatLngs(leafletPath);
-}
-
-// Main update loop (every 5 seconds)
+// Main update loop: fetch and update every 5 seconds
 setInterval(async () => {
-  // Update ISS data and visuals
-  const issPos = await fetchISS();
-  if (issPos) {
-    updatePlacemark(issLayer, issPos.lat, issPos.lon, issIconUrl);
-    updateGlobePath(issPathLayer, issGlobePathPositions, issPos.lat, issPos.lon, WorldWind.Color.RED);
-    updateLeaflet(issMarker, issPolyline, issLeafletPath, issPos.lat, issPos.lon);
-  } else {
-    console.warn("No ISS position data available.");
-  }
-  
-  // Update Tiangong data and visuals
-  const tiangongPos = await fetchTiangong();
-  if (tiangongPos) {
-    updatePlacemark(tiangongLayer, tiangongPos.lat, tiangongPos.lon, tiangongIconUrl);
-    updateGlobePath(tiangongPathLayer, tiangongGlobePathPositions, tiangongPos.lat, tiangongPos.lon, WorldWind.Color.BLUE);
-    updateLeaflet(tiangongMarker, tiangongPolyline, tiangongLeafletPath, tiangongPos.lat, tiangongPos.lon);
-  } else {
-    console.warn("No Tiangong position data available.");
-  }
+    const issPos = await fetchISS();
+    if (issPos) {
+        updateWorldWind(issPos);
+        updateLeaflet(issPos);
+        console.log("Updated ISS position:", issPos);
+    }
 }, 5000);
-
 
