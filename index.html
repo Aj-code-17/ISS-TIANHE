@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISS Tracker</title>
-    <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet">
+    <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet">
     <style>
         #map {
             position: absolute;
@@ -20,14 +20,14 @@
 <body>
     <div id="map"></div>
 
-    <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
     <script>
         // Dynamically load Satellite.js
         const satScript = document.createElement('script');
         satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
         document.head.appendChild(satScript);
 
-        // Initialize MapLibre GL map with CORS Anywhere proxy
+        // Initialize MapLibre GL map with CORS Proxy
         const map = new maplibregl.Map({
             container: 'map',
             style: {
@@ -36,7 +36,7 @@
                     "stamen-toner": {
                         "type": "raster",
                         "tiles": [
-                            "https://cors-anywhere.herokuapp.com/https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
+                            "https://corsproxy.io/?https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
                         ],
                         "tileSize": 256
                     }
