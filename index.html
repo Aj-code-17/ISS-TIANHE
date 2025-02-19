@@ -1,139 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISS Tracker</title>
-    <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet">
-    <style>
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-            height: 600px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>ISS & Tiangong Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+  </style>
 </head>
-
 <body>
-    <div id="map"></div>
+  <div id="map"></div>
 
-    <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
-    <script>
-        // Dynamically load Satellite.js
-        const satScript = document.createElement('script');
-        satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
-        document.head.appendChild(satScript);
+  <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
+  <script>
+    // Initialize MapLibre GL with a raster style using OSM tiles.
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        "version": 8,
+        "sources": {
+          "osm": {
+            "type": "raster",
+            "tiles": [
+              "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            ],
+            "tileSize": 256
+          }
+        },
+        "layers": [{
+          "id": "osm",
+          "type": "raster",
+          "source": "osm",
+          "minzoom": 0,
+          "maxzoom": 20
+        }]
+      },
+      center: [0, 0],
+      zoom: 1
+    });
 
-        // Initialize MapLibre GL map
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: {
-                "version": 8,
-                "sources": {
-                    "stamen-toner": {
-                        "type": "raster",
-                        "tiles": [
-                            "https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
-                        ],
-                        "tileSize": 256
-                    }
-                },
-                "layers": [{
-                    "id": "stamen-toner",
-                    "type": "raster",
-                    "source": "stamen-toner",
-                    "minzoom": 0,
-                    "maxzoom": 20
-                }]
-            },
-            center: [0, 0],
-            zoom: 1
-        });
+    // ISS and Tiangong markers (using simple colored markers)
+    const issMarker = new maplibregl.Marker({ color: 'red' }).setLngLat([0, 0]).addTo(map);
+    const tiangongMarker = new maplibregl.Marker({ color: 'blue' }).setLngLat([0, 0]).addTo(map);
 
-        // ISS and Tiangong markers
-        const issMarker = new maplibregl.Marker({ color: 'red' }).setLngLat([0, 0]).addTo(map);
-        const tiangongMarker = new maplibregl.Marker({ color: 'blue' }).setLngLat([0, 0]).addTo(map);
+    // Live Tracking Functions
+    async function getISSLocation() {
+      const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+      const data = await response.json();
+      return [data.longitude, data.latitude];
+    }
+    async function updateISSLocation() {
+      const location = await getISSLocation();
+      if (location) {
+        issMarker.setLngLat(location);
+      }
+    }
+    async function fetchTiangongPosition() {
+      const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Your N2YO API key
+      const noradId = 48274; // NORAD ID for Tiangong
+      const observerLat = 0; // Observer latitude
+      const observerLng = 0; // Observer longitude
+      const observerAlt = 0; // Observer altitude in meters
+      const seconds = 1; // Seconds for prediction
 
-        // Live Tracking Functions
-        async function getISSLocation() {
-            const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
-            const data = await response.json();
-            return [data.longitude, data.latitude];
+      const url = encodeURI(
+        `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
+      );
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const position = data.positions[0];
+        tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
+      } catch (error) {
+        console.error('Error fetching Tiangong position:', error);
+      }
+    }
+
+    // Initial live tracking calls and intervals
+    updateISSLocation();
+    setInterval(updateISSLocation, 5000);
+    fetchTiangongPosition();
+    setInterval(fetchTiangongPosition, 5000);
+
+    // ----- PREDICTED ORBIT CALCULATION -----
+    // Dynamically load Satellite.js
+    const satScript = document.createElement('script');
+    satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
+    document.head.appendChild(satScript);
+
+    satScript.onload = function () {
+      // Function to compute predicted orbit points using Satellite.js
+      function computePredictedOrbit(tle1, tle2, durationMinutes = 90) {
+        const satrec = satellite.twoline2satrec(tle1, tle2);
+        const now = new Date();
+        const points = [];
+        for (let i = 0; i <= durationMinutes; i++) {
+          const time = new Date(now.getTime() + i * 60 * 1000);
+          const positionAndVelocity = satellite.propagate(satrec, time);
+          if (positionAndVelocity.position) {
+            const gmst = satellite.gstime(time);
+            const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+            const latitude = satellite.degreesLat(positionGd.latitude);
+            const longitude = satellite.degreesLong(positionGd.longitude);
+            points.push([longitude, latitude]); // [lng, lat]
+          }
         }
+        return points;
+      }
 
-        async function updateISSLocation() {
-            const location = await getISSLocation();
-            if (location) {
-                issMarker.setLngLat(location);
-            }
+      // Updated TLE data for ISS and Tiangong
+      const issTle1 = '1 25544U 98067A   25049.36865051  .00017018  00000-0  30289-3 0  9996';
+      const issTle2 = '2 25544  51.6389 175.5124 0004060 333.0365 122.1476 15.50242656496730';
+      const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
+      const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
+
+      // Compute predicted orbit points for ISS
+      const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
+      // Add ISS predicted orbit as a GeoJSON source and layer
+      map.addSource('issOrbit', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: issOrbitPoints
+          }
         }
-
-        async function fetchTiangongPosition() {
-            const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Replace with your N2YO.com API key if available
-            const noradId = 48274; // NORAD ID for Tiangong
-            const observerLat = 0; // Your observer latitude
-            const observerLng = 0; // Your observer longitude
-            const observerAlt = 0; // Observer altitude (meters)
-            const seconds = 1; // Seconds for prediction
-
-            const url = encodeURI(
-                `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
-            );
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                const position = data.positions[0];
-
-                tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
-
-            } catch (error) {
-                console.error('Error fetching Tiangong position:', error);
-            }
+      });
+      map.addLayer({
+        id: 'issOrbit',
+        type: 'line',
+        source: 'issOrbit',
+        layout: {},
+        paint: {
+          'line-color': 'red',
+          'line-width': 2,
+          'line-dasharray': [4, 4]
         }
+      });
 
-        // Initial live tracking calls and intervals
-        updateISSLocation();
-        setInterval(updateISSLocation, 5000);
-        fetchTiangongPosition();
-        setInterval(fetchTiangongPosition, 5000);
+      // Compute predicted orbit points for Tiangong
+      const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
+      // Add Tiangong predicted orbit as a GeoJSON source and layer
+      map.addSource('tiangongOrbit', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: tiangongOrbitPoints
+          }
+        }
+      });
+      map.addLayer({
+        id: 'tiangongOrbit',
+        type: 'line',
+        source: 'tiangongOrbit',
+        layout: {},
+        paint: {
+          'line-color': 'blue',
+          'line-width': 2,
+          'line-dasharray': [4, 4]
+        }
+      });
 
-        // ----- PREDICTED ORBIT CALCULATION -----
-        satScript.onload = function () {
-            // Function to compute predicted orbit points using Satellite.js
-            function computePredictedOrbit(tle1, tle2, durationMinutes = 90) {
-                const satrec = satellite.twoline2satrec(tle1, tle2);
-                const now = new Date();
-                const points = [];
-                for (let i = 0; i <= durationMinutes; i++) {
-                    const time = new Date(now.getTime() + i * 60 * 1000);
-                    const positionAndVelocity = satellite.propagate(satrec, time);
-                    if (positionAndVelocity.position) {
-                        const gmst = satellite.gstime(time);
-                        const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
-                        const latitude = satellite.degreesLat(positionGd.latitude);
-                        const longitude = satellite.degreesLong(positionGd.longitude);
-                        points.push([longitude, latitude]); // Note: longitude, then latitude for MapLibre GL
-                    }
-                }
-                return points;
-            }
-
-            const issTle1 = '1 25544U 98067A   25049.36865051  .00017018  00000-0  30289-3 0  9996';
-            const issTle2 = '2 25544  51.6389 175.5124 0004060 333.0365 122.1476 15.50242656496730';
-            const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
-
-            const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
-            const issOrbitLine = new maplibregl.LineString({ color: 'red', width: 2 }).setLngLats(issOrbitPoints).addTo(map);
-
-            const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
-            const tiangongOrbitLine = new maplibregl.LineString({ color: 'blue', width: 2 }).setLngLats(tiangongOrbitPoints).addTo(map);
-        };
-    </script>
+      console.log("ISS predicted orbit points:", issOrbitPoints.length);
+      console.log("Tiangong predicted orbit points:", tiangongOrbitPoints.length);
+    };
+  </script>
 </body>
-
 </html>
+
