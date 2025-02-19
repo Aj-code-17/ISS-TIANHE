@@ -1,15 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISS Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        #map { width: 100%; height: 600px; }
-        #tiangong-info { padding: 20px; }
+        #map {
+            width: 100%;
+            height: 600px;
+        }
+
+        #tiangong-info {
+            padding: 20px;
+        }
     </style>
 </head>
+
 <body>
     <div id="map"></div>
     <div id="tiangong-info">
@@ -26,7 +34,7 @@
 
         // ISS Tracking
         const issIcon = L.icon({
-            iconUrl: 'https://img.icons8.com/color/48/iss.png',
+            iconUrl: 'iss.png', // Corrected path
             iconSize: [70, 50]
         });
         const issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
@@ -35,7 +43,7 @@
 
         // Tiangong Tracking
         const tiangongIcon = L.icon({
-            iconUrl: 'https://img.icons8.com/color/48/space-station.png',
+            iconUrl: 'tiangong.png', // Corrected path
             iconSize: [50, 50]
         });
         const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon }).addTo(map);
@@ -48,7 +56,7 @@
                 const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
                 const data = await response.json();
                 const location = [data.latitude, data.longitude];
-                
+
                 issMarker.setLatLng(location);
                 issPath.push(location);
                 issPolyline.setLatLngs(issPath);
@@ -67,14 +75,14 @@
             try {
                 const response = await fetch(url);
                 const data = await response.json();
-                
-                if(data.positions && data.positions.length > 0) {
+
+                if (data.positions && data.positions.length > 0) {
                     const pos = data.positions[0];
                     const location = [pos.satlatitude, pos.satlongitude];
-                    
-                    document.getElementById('position').textContent = 
+
+                    document.getElementById('position').textContent =
                         `Latitude: ${pos.satlatitude.toFixed(4)}, Longitude: ${pos.satlongitude.toFixed(4)}`;
-                    
+
                     tiangongMarker.setLatLng(location);
                     tiangongPath.push(location);
                     tiangongPolyline.setLatLngs(tiangongPath);
@@ -90,17 +98,22 @@
             const points = [];
             const now = new Date();
 
-            for(let i = 0; i < 90; i++) {
+            for (let i = 0; i < 90; i++) {
                 const date = new Date(now.getTime() + (i * 60 * 1000));
-                const { position } = satellite.propagate(satrec, date);
-                
-                if(position) {
+                const {
+                    position
+                } = satellite.propagate(satrec, date);
+
+                if (position) {
                     const gmst = satellite.gstime(date);
                     const geodetic = satellite.eciToGeodetic(position, gmst);
-                    
-                    const longitude = satellite.degreesLong(geodetic.longitude);
-                    const latitude = satellite.degreesLat(geodetic.latitude);
-                    
+
+                    let longitude = satellite.degreesLong(geodetic.longitude);
+                    let latitude = satellite.degreesLat(geodetic.latitude);
+
+                    // Wrap longitude to stay within -180 to 180 range
+                    longitude = (longitude + 180) % 360 - 180;
+
                     points.push([latitude, longitude]);
                 }
             }
@@ -119,8 +132,22 @@
             '2 48274  41.4732  80.1553 0016146 226.8877 133.0410 15.61100352 26834'
         ];
 
-        const orbitPoints = calculateOrbit(...tiangongTLE);
-        L.polyline(orbitPoints, {color: 'orange'}).addTo(map);
+        const tiangongOrbitPoints = calculateOrbit(...tiangongTLE);
+        L.polyline(tiangongOrbitPoints, {
+            color: 'orange'
+        }).addTo(map);
+
+
+        const issTLE = [
+            '1 25544U 98067A   23071.69539875  .00000424  00000-0  17087-4 0  9997',
+            '2 25544  51.6416 161.2721 0006524 133.6808 226.2576 15.50580964 80598'
+        ];
+
+        const issOrbitPoints = calculateOrbit(...issTLE);
+        L.polyline(issOrbitPoints, {
+            color: 'red'
+        }).addTo(map); // Added to map
     </script>
 </body>
+
 </html>
