@@ -27,7 +27,7 @@
         satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
         document.head.appendChild(satScript);
 
-        // Initialize MapLibre GL map with CORS Proxy
+        // Initialize MapLibre GL map
         const map = new maplibregl.Map({
             container: 'map',
             style: {
@@ -36,7 +36,7 @@
                     "stamen-toner": {
                         "type": "raster",
                         "tiles": [
-                            "https://corsproxy.io/?https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
+                            "https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
                         ],
                         "tileSize": 256
                     }
@@ -53,15 +53,15 @@
             zoom: 1
         });
 
-        // ISS and Tiangong markers (using MapLibre GL)
+        // ISS and Tiangong markers
         const issMarker = new maplibregl.Marker({ color: 'red' }).setLngLat([0, 0]).addTo(map);
         const tiangongMarker = new maplibregl.Marker({ color: 'blue' }).setLngLat([0, 0]).addTo(map);
 
-        // Live Tracking Functions (modified for MapLibre GL)
+        // Live Tracking Functions
         async function getISSLocation() {
             const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
             const data = await response.json();
-            return [data.longitude, data.latitude]; // Return [longitude, latitude]
+            return [data.longitude, data.latitude];
         }
 
         async function updateISSLocation() {
@@ -79,9 +79,8 @@
             const observerAlt = 0; // Observer altitude (meters)
             const seconds = 1; // Seconds for prediction
 
-            const proxyUrl = 'https://corsproxy.io/?'; // Replace with your proxy URL if needed
             const url = encodeURI(
-                `${proxyUrl}https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
+                `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
             );
 
             try {
@@ -129,10 +128,10 @@
             const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
 
             const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
-            const issOrbitLine = new maplibregl.Polyline({ color: 'red', width: 2 }).setLngLats(issOrbitPoints).addTo(map);
+            const issOrbitLine = new maplibregl.LineString({ color: 'red', width: 2 }).setLngLats(issOrbitPoints).addTo(map);
 
             const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
-            const tiangongOrbitLine = new maplibregl.Polyline({ color: 'blue', width: 2 }).setLngLats(tiangongOrbitPoints).addTo(map);
+            const tiangongOrbitLine = new maplibregl.LineString({ color: 'blue', width: 2 }).setLngLats(tiangongOrbitPoints).addTo(map);
         };
     </script>
 </body>
