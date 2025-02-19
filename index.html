@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
@@ -11,7 +10,6 @@
             margin: 0;
             padding: 0;
         }
-
         #map {
             position: absolute;
             top: 0;
@@ -20,10 +18,8 @@
         }
     </style>
 </head>
-
 <body>
     <div id="map"></div>
-
     <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
     <script>
         // Initialize MapLibre GL
@@ -76,7 +72,7 @@
             const seconds = 1; // Seconds for prediction
 
             const url = encodeURI(
-                `https://api.n2yo.com/rest/v1/satellite/positions/<span class="math-inline">\{noradId\}/</span>{observerLat}/<span class="math-inline">\{observerLng\}/</span>{observerAlt}/<span class="math-inline">\{seconds\}/?<1\>apiKey\=</span>{apiKey}`
+                `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`
             );
 
             try {
@@ -137,59 +133,59 @@
             const issTle1 = '1 25544U 98067A   25049.36865051  .00017018  00000-0  30289-3 0  9996';
             const issTle2 = '2 25544  51.6389 175.5124 0004060 333.0365 122.1476 15.50242656496730';
             const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 1;
+            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.0412 15.56670993 90517';
 
-      // Compute predicted orbit for ISS
-      const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
-      map.addSource('issOrbit', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: issOrbitPoints
-          }
-        }
-      });
-      map.addLayer({
-        id: 'issOrbit',
-        type: 'line',
-        source: 'issOrbit',
-        layout: {},
-        paint: {
-          'line-color': 'red',
-          'line-width': 2,
-          'line-dasharray': [4, 4]
-        }
-      });
+            // Compute predicted orbit for ISS
+            const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
+            map.addSource('issOrbit', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: issOrbitPoints
+                    }
+                }
+            });
+            map.addLayer({
+                id: 'issOrbit',
+                type: 'line',
+                source: 'issOrbit',
+                layout: {},
+                paint: {
+                    'line-color': 'red',
+                    'line-width': 2,
+                    'line-dasharray': [4, 4]
+                }
+            });
 
-      // Compute predicted orbit for Tiangong
-      const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
-      map.addSource('tiangongOrbit', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: tiangongOrbitPoints
-          }
-        }
-      });
-      map.addLayer({
-        id: 'tiangongOrbit',
-        type: 'line',
-        source: 'tiangongOrbit',
-        layout: {},
-        paint: {
-          'line-color': 'blue',
-          'line-width': 2,
-          'line-dasharray': [4, 4]
-        }
-      });
+            // Compute predicted orbit for Tiangong
+            const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
+            map.addSource('tiangongOrbit', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: tiangongOrbitPoints
+                    }
+                }
+            });
+            map.addLayer({
+                id: 'tiangongOrbit',
+                type: 'line',
+                source: 'tiangongOrbit',
+                layout: {},
+                paint: {
+                    'line-color': 'blue',
+                    'line-width': 2,
+                    'line-dasharray': [4, 4]
+                }
+            });
 
-      console.log("ISS predicted orbit points:", issOrbitPoints.length);
-      console.log("Tiangong predicted orbit points:", tiangongOrbitPoints.length);
-    };
-  </script>
+            console.log("ISS predicted orbit points:", issOrbitPoints.length);
+            console.log("Tiangong predicted orbit points:", tiangongOrbitPoints.length);
+        };
+    </script>
 </body>
 </html>
