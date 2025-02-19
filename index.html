@@ -1,31 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ISS Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <style>
-        #map {
-            height: 600px;
-        }
-
-        #satellite-info {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-    <div id="map"> </div>
-    <div id="satellite-info">
-        <p>ISS: Loading...</p>
-        <p>Tiangong: Loading...</p>
-    </div>
+    <div id="map" style="width: 100%; height: 600px;"></div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
@@ -36,34 +21,25 @@
 
         // Initialize Leaflet Map and re-enable interactions
         const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         // ISS Icon and Marker (Live Tracking)
         const issIcon = L.icon({
             iconUrl: 'iss.png', // Replace with your local ISS icon or an HTTPS URL
             iconSize: [70, 50]
         });
-        const issMarker = L.marker([0, 0], {
-            icon: issIcon
-        }).addTo(map);
+        const issMarker = L.marker([0, 0], { icon: issIcon }).addTo(map);
         let issPath = [];
-        const issPolyline = L.polyline([], {
-            color: 'red'
-        }).addTo(map);
+        const issPolyline = L.polyline([], { color: 'red' }).addTo(map);
 
         // Tiangong Icon and Marker (Live Tracking)
         const tiangongIcon = L.icon({
             iconUrl: 'tiangong.png', // Replace with your Tiangong icon or an HTTPS URL
             iconSize: [50, 50]
         });
-        const tiangongMarker = L.marker([0, 0], {
-            icon: tiangongIcon,
-            title: 'Tiangong'
-        }).addTo(map);
+        const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(map);
         let tiangongPath = [];
-        const tiangongPolyline = L.polyline([], {
-            color: 'blue'
-        }).addTo(map);
+        const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(map);
 
         // Live Tracking Functions
         async function getISSLocation() {
@@ -89,7 +65,7 @@
 
             const proxyUrl = 'https://corsproxy.io/?'; // Replace with your proxy URL if needed
             const url = encodeURI(
-                `<span class="math-inline">\{proxyUrl\}https\://api\.n2yo\.com/rest/v1/satellite/positions/</span>{noradId}/<span class="math-inline">\{observerLat\}/</span>{observerLng}/<span class="math-inline">\{observerAlt\}/</span>{seconds}/?apiKey=${apiKey}`
+                `${proxyUrl}https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
             );
 
             try {
@@ -143,20 +119,16 @@
 
             // Compute predicted orbit for ISS and display on the map
             const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
-            const issOrbitPolyline = L.polyline(issOrbitPoints, {
-                color: 'red',
-                dashArray: '4 4'
-            }).addTo(map);
+            const issOrbitPolyline = L.polyline(issOrbitPoints, { color: 'red', dashArray: '4 4' }).addTo(map);
 
             // Compute predicted orbit for Tiangong and display on the map
             const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
-            const tiangongOrbitPolyline = L.polyline(tiangongOrbitPoints, {
-                color: 'blue',
-                dashArray: '4 4'
-            }).addTo(map);
+            const tiangongOrbitPolyline = L.polyline(tiangongOrbitPoints, { color: 'blue', dashArray: '4 4' }).addTo(map);
 
             console.log("ISS predicted orbit points:", issOrbitPoints.length);
             console.log("Tiangong predicted orbit points:", tiangongOrbitPoints.length);
         };
+    </script>
+</body>
 
-        // Update
+</html>
