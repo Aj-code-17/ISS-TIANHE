@@ -59,10 +59,6 @@
             }
         }
 
-        let tiangongRetryCount = 0;
-        const tiangongMaxRetries = 3;
-        const tiangongInitialDelay = 1000; // 1 second
-
         async function fetchTiangongPosition() {
             const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Your N2YO API key
             const noradId = 48274; // NORAD ID for Tiangong
@@ -80,19 +76,16 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                const position = data.positions[0];
-                tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
-                tiangongRetryCount = 0; // Reset retry count on success
+
+                // Check if positions array exists and has at least one element
+                if (data.positions && data.positions.length > 0) {
+                    const position = data.positions[0];
+                    tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
+                } else {
+                    console.error('Invalid API response: positions array is missing or empty.');
+                }
             } catch (error) {
                 console.error('Error fetching Tiangong position:', error);
-                if (tiangongRetryCount < tiangongMaxRetries) {
-                    const delay = tiangongInitialDelay * Math.pow(2, tiangongRetryCount);
-                    console.log(`Retrying in ${delay / 1000} seconds...`);
-                    setTimeout(fetchTiangongPosition, delay);
-                    tiangongRetryCount++;
-                } else {
-                    console.error('Max retries reached. Giving up on Tiangong position.');
-                }
             }
         }
 
@@ -109,81 +102,84 @@
         document.head.appendChild(satScript);
 
         satScript.onload = function () {
-            // Function to compute predicted orbit points using Satellite.js
-            function computePredictedOrbit(tle1, tle2, durationMinutes = 90) {
-                const satrec = satellite.twoline2satrec(tle1, tle2);
-                const now = new Date();
-                const points = [];
-                for (let i = 0; i <= durationMinutes; i++) {
-                    const time = new Date(now.getTime() + i * 60 * 1000);
-                    const positionAndVelocity = satellite.propagate(satrec, time);
-                    if (positionAndVelocity.position) {
-                        const gmst = satellite.gstime(time);
-                        const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
-                        const latitude = satellite.degreesLat(positionGd.latitude);
-                        const longitude = satellite.degreesLong(positionGd.longitude);
-                        points.push([longitude, latitude]); // [lng, lat]
+            // Wait for the map to finish loading
+            map.on('load', () => {
+                // Function to compute predicted orbit points using Satellite.js
+                function computePredictedOrbit(tle1, tle2, durationMinutes = 90) {
+                    const satrec = satellite.twoline2satrec(tle1, tle2);
+                    const now = new Date();
+                    const points = [];
+                    for (let i = 0; i <= durationMinutes; i++) {
+                        const time = new Date(now.getTime() + i * 60 * 1000);
+                        const positionAndVelocity = satellite.propagate(satrec, time);
+                        if (positionAndVelocity.position) {
+                            const gmst = satellite.gstime(time);
+                            const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+                            const latitude = satellite.degreesLat(positionGd.latitude);
+                            const longitude = satellite.degreesLong(positionGd.longitude);
+                            points.push([longitude, latitude]); // [lng, lat]
+                        }
                     }
+                    return points;
                 }
-                return points;
-            }
 
-            // Updated TLE data for ISS and Tiangong
-            const issTle1 = '1 25544U 98067A   25049.36865051  .00017018  00000-0  30289-3 0  9996';
-            const issTle2 = '2 25544  51.6389 175.5124 0004060 333.0365 122.1476 15.50242656496730';
-            const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.0412 15.56670993 90517';
+                // Updated TLE data for ISS and Tiangong
+                const issTle1 = '1 25544U 98067A   25049.36865051  .00017018  00000-0  30289-3 0  9996';
+                const issTle2 = '2 25544  51.6389 175.5124 0004060 333.0365 122.1476 15.50242656496730';
+                const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
+                const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.0412 15.56670993 90517';
 
-            // Compute predicted orbit for ISS
-            const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
-            map.addSource('issOrbit', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: issOrbitPoints
+                // Compute predicted orbit for ISS
+                const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
+                map.addSource('issOrbit', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: issOrbitPoints
+                        }
                     }
-                }
-            });
-            map.addLayer({
-                id: 'issOrbit',
-                type: 'line',
-                source: 'issOrbit',
-                layout: {},
-                paint: {
-                    'line-color': 'red',
-                    'line-width': 2,
-                    'line-dasharray': [4, 4]
-                }
-            });
-
-            // Compute predicted orbit for Tiangong
-            const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
-            map.addSource('tiangongOrbit', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: tiangongOrbitPoints
+                });
+                map.addLayer({
+                    id: 'issOrbit',
+                    type: 'line',
+                    source: 'issOrbit',
+                    layout: {},
+                    paint: {
+                        'line-color': 'red',
+                        'line-width': 2,
+                        'line-dasharray': [4, 4]
                     }
-                }
-            });
-            map.addLayer({
-                id: 'tiangongOrbit',
-                type: 'line',
-                source: 'tiangongOrbit',
-                layout: {},
-                paint: {
-                    'line-color': 'blue',
-                    'line-width': 2,
-                    'line-dasharray': [4, 4]
-                }
-            });
+                });
 
-            console.log("ISS predicted orbit points:", issOrbitPoints.length);
-            console.log("Tiangong predicted orbit points:", tiangongOrbitPoints.length);
+                // Compute predicted orbit for Tiangong
+                const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
+                map.addSource('tiangongOrbit', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: tiangongOrbitPoints
+                        }
+                    }
+                });
+                map.addLayer({
+                    id: 'tiangongOrbit',
+                    type: 'line',
+                    source: 'tiangongOrbit',
+                    layout: {},
+                    paint: {
+                        'line-color': 'blue',
+                        'line-width': 2,
+                        'line-dasharray': [4, 4]
+                    }
+                });
+
+                console.log("ISS predicted orbit points:", issOrbitPoints.length);
+                console.log("Tiangong predicted orbit points:", tiangongOrbitPoints.length);
+            });
         };
     </script>
 </body>
