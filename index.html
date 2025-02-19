@@ -60,7 +60,7 @@
         }
 
         async function fetchTiangongPosition() {
-            const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Replace with your actual N2YO API key
+            const apiKey = 'YOUR_VALID_API_KEY'; // Replace with your actual N2YO API key
             const noradId = 48274; // NORAD ID for Tiangong
             const observerLat = 37.7749; // Example: San Francisco latitude
             const observerLng = -122.4194; // Example: San Francisco longitude
@@ -68,7 +68,7 @@
             const seconds = 60; // Predict positions for the next 60 seconds
 
             const url = `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
 
             try {
                 const response = await fetch(proxyUrl);
@@ -76,12 +76,12 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
+                const parsedData = JSON.parse(data.contents); // Parse the response from AllOrigins
 
-                console.log('API Response:', data); // Debugging: Log the full API response
+                console.log('API Response:', parsedData); // Debugging: Log the full API response
 
-                // Check if positions array exists and has at least one element
-                if (data.positions && data.positions.length > 0) {
-                    const position = data.positions[0];
+                if (parsedData.positions && parsedData.positions.length > 0) {
+                    const position = parsedData.positions[0];
                     tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
                 } else {
                     console.error('Invalid API response: positions array is missing or empty.');
