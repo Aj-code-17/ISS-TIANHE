@@ -27,7 +27,7 @@
         satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
         document.head.appendChild(satScript);
 
-        // Initialize MapLibre GL map
+        // Initialize MapLibre GL map with CORS Anywhere proxy
         const map = new maplibregl.Map({
             container: 'map',
             style: {
@@ -36,7 +36,7 @@
                     "stamen-toner": {
                         "type": "raster",
                         "tiles": [
-                            "https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
+                            "https://cors-anywhere.herokuapp.com/https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
                         ],
                         "tileSize": 256
                     }
