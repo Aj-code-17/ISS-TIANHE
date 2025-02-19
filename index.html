@@ -62,10 +62,10 @@
         async function fetchTiangongPosition() {
             const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Your N2YO API key
             const noradId = 48274; // NORAD ID for Tiangong
-            const observerLat = 0; // Observer latitude
-            const observerLng = 0; // Observer longitude
-            const observerAlt = 0; // Observer altitude in meters
-            const seconds = 1; // Seconds for prediction
+            const observerLat = 37.7749; // Example: San Francisco latitude
+            const observerLng = -122.4194; // Example: San Francisco longitude
+            const observerAlt = 10; // Observer altitude in meters (sea level + 10m)
+            const seconds = 60; // Predict positions for the next 60 seconds
 
             const url = `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/&apiKey=${apiKey}`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
@@ -76,6 +76,8 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
+
+                console.log('API Response:', data); // Debugging: Log the full API response
 
                 // Check if positions array exists and has at least one element
                 if (data.positions && data.positions.length > 0) {
