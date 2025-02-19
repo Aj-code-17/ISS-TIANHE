@@ -101,33 +101,31 @@
         setInterval(fetchTiangongPosition, 5000); // Update every 5 seconds
 
         // Tiangong orbit calculation and display
-        script.onload = function () { // Ensure satellite.js is loaded
-            // Define TLE variables here, inside the onload function
-            const tle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
+        const satellite = require('satellite.js');
 
-            // Access satellite.js through the global 'satellite' object
-            const satrec = satellite.twoline2satrec(tle1, tle2);
+        const tle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
+        const tle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
 
-            const now = new Date();
+        const satrec = satellite.twoline2satrec(tle1, tle2);
 
-            const points = [];
+        const now = new Date();
 
-            for (let i = 0; i < 90; i++) {
-                const time = new Date(now.getTime() + i * 60 * 1000); // 90 minutes
-                const positionAndVelocity = satellite.propagate(satrec, time);
-                if (positionAndVelocity.position) { // Check if position is valid
-                    const longitudeDegrees = satellite.degreesLong(positionAndVelocity.position.longitude);
-                    const latitudeDegrees = satellite.degreesLat(positionAndVelocity.position.latitude);
-                    points.push([latitudeDegrees, longitudeDegrees]);
-                }
+        const points = [];
+
+        for (let i = 0; i < 90; i++) {
+            const time = new Date(now.getTime() + i * 60 * 1000); // 90 minutes
+            const position = satellite.propagate(satrec, time);
+            if (position.position) { // Check if position is valid
+                const longitudeDegrees = satellite.degreesLong(position.longitude);
+                const latitudeDegrees = satellite.degreesLat(position.latitude);
+                points.push([latitudeDegrees, longitudeDegrees]);
             }
-
-            const orbitPolyline = L.polyline(points, { color: 'blue' }).addTo(map); // Add to map
-
-            console.log("Number of points in orbit:", points.length); // Check if points are being generated
-            console.log("Orbit Polyline:", orbitPolyline); // Check if polyline is being created
         }
+
+        const orbitPolyline = L.polyline(points, { color: 'blue' }).addTo(map);
+
+        console.log("Number of points in orbit:", points.length); // Check if points are being generated
+        console.log("Orbit Polyline:", orbitPolyline); // Check if polyline is being created
     </script>
 </body>
 
