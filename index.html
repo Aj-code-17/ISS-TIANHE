@@ -102,11 +102,7 @@
 
         // Tiangong orbit calculation and display
         script.onload = function () { // Ensure satellite.js is loaded
-            const satellite = require('satellite.js');
-
-            const tle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
-
+            // Access satellite.js through the global 'satellite' object
             const satrec = satellite.twoline2satrec(tle1, tle2);
 
             const now = new Date();
