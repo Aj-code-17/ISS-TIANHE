@@ -149,15 +149,6 @@
             const issTle1 = '1 25544U 98067A   25049.36865051  .00017018  00000-0  30289-3 0  9996';
             const issTle2 = '2 25544  51.6389 175.5124 0004060 333.0365 122.1476 15.50242656496730';
             // TLE data for Tiangong (example data; update with current data if available)
-            const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.1035 15.59818964130880';
-
-            // Compute predicted orbit for ISS and display on the map
-            const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
-            const issOrbitPolyline = L.polyline(issOrbitPoints, { color: 'red', dashArray: '4 4' }).addTo(map);
-
-            // Compute predicted orbit for Tiangong and display on the map
-            const tiangongOrbitPoints = computePredictedOrbit(tiangongTle1, tiangongTle2);
-            const tiangongOrbitPolyline = L.polyline(tiangongOrbitPoints, { color: 'blue', dashArray: '4 4' }).
-
+            const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-
+          
       
