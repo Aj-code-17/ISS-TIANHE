@@ -2,11 +2,10 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISS Tracker</title>
-    <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css" />
+    <link href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" rel="stylesheet">
     <style>
         #map {
             position: absolute;
@@ -54,12 +53,17 @@
             zoom: 1
         });
 
-
         // ISS and Tiangong markers (using MapLibre GL)
         const issMarker = new maplibregl.Marker({ color: 'red' }).setLngLat([0, 0]).addTo(map);
         const tiangongMarker = new maplibregl.Marker({ color: 'blue' }).setLngLat([0, 0]).addTo(map);
 
         // Live Tracking Functions (modified for MapLibre GL)
+        async function getISSLocation() {
+            const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+            const data = await response.json();
+            return [data.longitude, data.latitude]; // Return [longitude, latitude]
+        }
+
         async function updateISSLocation() {
             const location = await getISSLocation();
             if (location) {
@@ -85,7 +89,7 @@
                 const data = await response.json();
                 const position = data.positions[0];
 
-                tiangongMarker.setLngLat([position.satlatitude, position.satlongitude]);
+                tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
 
             } catch (error) {
                 console.error('Error fetching Tiangong position:', error);
@@ -97,7 +101,6 @@
         setInterval(updateISSLocation, 5000);
         fetchTiangongPosition();
         setInterval(fetchTiangongPosition, 5000);
-
 
         // ----- PREDICTED ORBIT CALCULATION -----
         satScript.onload = function () {
