@@ -60,37 +60,25 @@
         }
 
         async function fetchTiangongPosition() {
-            const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Replace with your actual N2YO API key
-            const noradId = 48274; // NORAD ID for Tiangong
-            const observerLat = 37.7749; // Example: San Francisco latitude
-            const observerLng = -122.4194; // Example: San Francisco longitude
-            const observerAlt = 10; // Observer altitude in meters (sea level + 10m)
-            const seconds = 60; // Predict positions for the next 60 seconds
+            const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
+            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.0412 15.56670993 90517';
 
-            // Construct the API URL
-            const apiUrl = `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`;
+            // Compute the current position using TLE data
+            const satrec = satellite.twoline2satrec(tiangongTle1, tiangongTle2);
+            const now = new Date();
+            const positionAndVelocity = satellite.propagate(satrec, now);
 
-            // Use the corsproxy.io proxy
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+            if (positionAndVelocity.position) {
+                const gmst = satellite.gstime(now);
+                const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+                const latitude = satellite.degreesLat(positionGd.latitude);
+                const longitude = satellite.degreesLong(positionGd.longitude);
 
-            try {
-                const response = await fetch(proxyUrl);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+                console.log('Calculated Tiangong Position:', { latitude, longitude });
 
-                console.log('API Response:', data); // Debugging: Log the full API response
-
-                // Check if positions array exists and has at least one element
-                if (data.positions && data.positions.length > 0) {
-                    const position = data.positions[0];
-                    tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
-                } else {
-                    console.error('Invalid API response: positions array is missing or empty.');
-                }
-            } catch (error) {
-                console.error('Error fetching Tiangong position:', error);
+                tiangongMarker.setLngLat([longitude, latitude]);
+            } else {
+                console.error('Error calculating Tiangong position.');
             }
         }
 
