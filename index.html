@@ -6,23 +6,15 @@
     <title>ISS & Tiangong Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" />
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-        }
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
     <script>
-        // Initialize MapLibre GL
+        // Initialize MapLibre GL with a colorful base map (Carto Voyager style) and static interactivity.
         const map = new maplibregl.Map({
             container: 'map',
             style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
@@ -59,16 +51,19 @@
             }
         }
 
+        // Updated fetchTiangongPosition using CORS Anywhere proxy
         async function fetchTiangongPosition() {
             const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Your N2YO API key
             const noradId = 48274; // NORAD ID for Tiangong
-            const observerLat = 0; // Your observer latitude
-            const observerLng = 0; // Your observer longitude
-            const observerAlt = 0; // Observer altitude (meters)
-            const seconds = 1; // Seconds for prediction
+            const observerLat = 0;  // Observer latitude
+            const observerLng = 0;  // Observer longitude
+            const observerAlt = 0;  // Observer altitude in meters
+            const seconds = 1;      // Seconds for prediction
 
+            // Use CORS Anywhere proxy – request temporary access at: https://cors-anywhere.herokuapp.com/corsdemo
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
             const url = encodeURI(
-                `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
+                `${proxyUrl}https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
             );
 
             try {
@@ -77,7 +72,6 @@
                 const position = data.positions[0];
 
                 tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
-
             } catch (error) {
                 console.error('Error fetching Tiangong position:', error);
             }
@@ -120,7 +114,6 @@
                 // Updated TLE data for ISS and Tiangong
                 const issTle1 = '1 25544U 98067A   25058.66013045  .00061406  00000+0  10908-2 0  9991';
                 const issTle2 = '2 25544  51.6385 129.5122 0005976 320.1405 159.8209 15.49585351498173';
-                // Updated Tiangong TLE data (new values)
                 const tiangongTle1 = '1 48274U 21035A   25063.02436798  .00034128  00000-0  39625-3 0  9997';
                 const tiangongTle2 = '2 48274  41.4650 301.0393 0007466 280.0498  79.9498 15.61023996219718';
 
@@ -179,3 +172,7 @@
     </script>
 </body>
 </html>
+
+
+     
+    
