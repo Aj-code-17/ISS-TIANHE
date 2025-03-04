@@ -60,25 +60,26 @@
         }
 
         async function fetchTiangongPosition() {
-            const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-            const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.0412 15.56670993 90517';
+            const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Your N2YO API key
+            const noradId = 48274; // NORAD ID for Tiangong
+            const observerLat = 0; // Your observer latitude
+            const observerLng = 0; // Your observer longitude
+            const observerAlt = 0; // Observer altitude (meters)
+            const seconds = 1; // Seconds for prediction
 
-            // Compute the current position using TLE data
-            const satrec = satellite.twoline2satrec(tiangongTle1, tiangongTle2);
-            const now = new Date();
-            const positionAndVelocity = satellite.propagate(satrec, now);
+            const url = encodeURI(
+                `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`
+            );
 
-            if (positionAndVelocity.position) {
-                const gmst = satellite.gstime(now);
-                const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
-                const latitude = satellite.degreesLat(positionGd.latitude);
-                const longitude = satellite.degreesLong(positionGd.longitude);
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const position = data.positions[0];
 
-                console.log('Calculated Tiangong Position:', { latitude, longitude });
+                tiangongMarker.setLngLat([position.satlongitude, position.satlatitude]);
 
-                tiangongMarker.setLngLat([longitude, latitude]);
-            } else {
-                console.error('Error calculating Tiangong position.');
+            } catch (error) {
+                console.error('Error fetching Tiangong position:', error);
             }
         }
 
@@ -119,8 +120,9 @@
                 // Updated TLE data for ISS and Tiangong
                 const issTle1 = '1 25544U 98067A   25058.66013045  .00061406  00000+0  10908-2 0  9991';
                 const issTle2 = '2 25544  51.6385 129.5122 0005976 320.1405 159.8209 15.49585351498173';
-                const tiangongTle1 = '1 54216U 22143A   25048.94388909  .00037270  00000-0  45292-3 0  9993';
-                const tiangongTle2 = '2 54216  41.4672  26.6806 0005254 200.9588 159.0412 15.56670993 90517';
+                // Updated Tiangong TLE data (new values)
+                const tiangongTle1 = '1 48274U 21035A   25063.02436798  .00034128  00000-0  39625-3 0  9997';
+                const tiangongTle2 = '2 48274  41.4650 301.0393 0007466 280.0498  79.9498 15.61023996219718';
 
                 // Compute predicted orbit for ISS
                 const issOrbitPoints = computePredictedOrbit(issTle1, issTle2);
