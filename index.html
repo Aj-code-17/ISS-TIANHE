@@ -13,6 +13,8 @@
       width: 40px; 
       height: 40px; 
       transform: translate(-50%, -50%); 
+      /* Ensures the marker element itself can be easily hidden */
+      transition: opacity 0s; 
     }
   </style>
 </head>
@@ -77,50 +79,51 @@
     const tiangongMarker = new maplibregl.Marker({ element: createMarkerElement('tiangong.png') })
       .setLngLat([0, 0]).addTo(map);
 
-    // LIVE ISS tracking (using API) - This part remains mostly the same,
-    // but we'll try to apply antimeridian handling to the marker's update.
+    // --- Core Fix for Marker Jump ---
+    
+    /**
+     * Handles setting a new position for a marker, preventing the visible line jump
+     * when crossing the Antimeridian (180/-180 longitude).
+     */
+    function handleMarkerAntimeridian(marker, newLngLat) {
+        const markerElement = marker.getElement();
+        // Get the last known position from the marker object
+        const currentLngLat = marker.getLngLat().toArray();
+        const [currentLng, currentLat] = currentLngLat;
+        const [newLng, newLat] = newLngLat;
+
+        // Check if the longitude change suggests a wrap-around
+        if (Math.abs(newLng - currentLng) > 180) {
+            // FIX: Hide the marker immediately
+            markerElement.style.opacity = 0; 
+
+            // Update the marker's coordinates.
+            marker.setLngLat(newLngLat);
+            
+            // Show the marker immediately after the coordinates are set,
+            // resulting in a visual "teleport" or reappearance from the opposite edge.
+            markerElement.style.opacity = 1;
+
+        } else {
+            // Normal movement, no jump detected
+            marker.setLngLat(newLngLat);
+        }
+    }
+    // --- End Core Fix ---
+
+
+    // LIVE ISS tracking (using API) 
     async function getISSLocation() {
       const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
       const d = await resp.json();
       return [d.longitude, d.latitude];
     }
 
-    // FIX: Antimeridian handling for marker movement
-    function handleMarkerAntimeridian(marker, currentLngLat, newLngLat) {
-        const [currentLng, currentLat] = currentLngLat;
-        const [newLng, newLat] = newLngLat;
-
-        // If the longitude difference is large, it might be crossing the antimeridian
-        if (Math.abs(newLng - currentLng) > 180) {
-            // Check if it's wrapping from +180 to -180 or vice-versa
-            // If newLng is much smaller than currentLng, it means it wrapped from positive to negative
-            if (newLng < currentLng && currentLng > 90 && newLng < -90) {
-                // To prevent the line across the map, we'll set the marker to appear on the other side
-                // This makes it visually "disappear" from one edge and "reappear" on the other.
-                // We briefly move it off-screen (e.g., beyond -180 or +180) and then reset it.
-                marker.setLngLat([(newLng > 0 ? -180 : 180), newLat]); // Instantly jump to the other edge
-                // Then, set to the actual new position after a very short delay for smoother visual 'teleport'
-                setTimeout(() => marker.setLngLat(newLngLat), 10);
-            } 
-            // If newLng is much larger than currentLng, it means it wrapped from negative to positive
-            else if (newLng > currentLng && currentLng < -90 && newLng > 90) {
-                 marker.setLngLat([(newLng > 0 ? -180 : 180), newLat]); // Instantly jump to the other edge
-                 setTimeout(() => marker.setLngLat(newLngLat), 10);
-            }
-            else { // For other large jumps, just set it directly
-                marker.setLngLat(newLngLat);
-            }
-        } else {
-            marker.setLngLat(newLngLat);
-        }
-    }
-
-
     async function updateISS() {
       try {
         const newLoc = await getISSLocation();
-        const currentLoc = issMarker.getLngLat().toArray();
-        handleMarkerAntimeridian(issMarker, currentLoc, newLoc);
+        // Use the new Antimeridian handler
+        handleMarkerAntimeridian(issMarker, newLoc);
       } catch (e) {
         console.error('ISS fetch error', e);
       }
@@ -267,8 +270,8 @@
             // --- Update Tiangong ---
             const tiangongPos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
             if (tiangongPos) {
-                const currentTiangongLoc = tiangongMarker.getLngLat().toArray();
-                handleMarkerAntimeridian(tiangongMarker, currentTiangongLoc, tiangongPos);
+                // Use the new Antimeridian handler
+                handleMarkerAntimeridian(tiangongMarker, tiangongPos);
             }
         }, 1000); // Update position every 1 second for smooth movement
     }
