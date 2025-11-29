@@ -13,8 +13,6 @@
       width: 40px; 
       height: 40px; 
       transform: translate(-50%, -50%); 
-      /* Ensures the marker element itself can be easily hidden */
-      transition: opacity 0s; 
     }
   </style>
 </head>
@@ -63,7 +61,9 @@
       },
       center: [0, 0],
       zoom: 1.5,
-      interactive: true
+      interactive: true,
+      // CRITICAL: Allow MapLibre to handle multiple world copies for smooth movement
+      renderWorldCopies: true 
     });
 
     // Function to create custom HTML element for markers
@@ -79,37 +79,37 @@
     const tiangongMarker = new maplibregl.Marker({ element: createMarkerElement('tiangong.png') })
       .setLngLat([0, 0]).addTo(map);
 
-    // --- Core Fix for Marker Jump ---
+    // --- CRITICAL FIX FUNCTION FOR MARKERS ---
     
     /**
-     * Handles setting a new position for a marker, preventing the visible line jump
-     * when crossing the Antimeridian (180/-180 longitude).
+     * Finds the longitude closest to the current one, solving the jump issue.
+     * @param {number} currentLng - The marker's current longitude (which may be outside -180/180)
+     * @param {number} newLng - The calculated new longitude (-180 to 180)
+     * @returns {number} The corrected longitude that minimizes the distance, preventing the line.
      */
-    function handleMarkerAntimeridian(marker, newLngLat) {
-        const markerElement = marker.getElement();
-        // Get the last known position from the marker object
-        const currentLngLat = marker.getLngLat().toArray();
-        const [currentLng, currentLat] = currentLngLat;
-        const [newLng, newLat] = newLngLat;
-
-        // Check if the longitude change suggests a wrap-around
-        if (Math.abs(newLng - currentLng) > 180) {
-            // FIX: Hide the marker immediately
-            markerElement.style.opacity = 0; 
-
-            // Update the marker's coordinates.
-            marker.setLngLat(newLngLat);
-            
-            // Show the marker immediately after the coordinates are set,
-            // resulting in a visual "teleport" or reappearance from the opposite edge.
-            markerElement.style.opacity = 1;
-
-        } else {
-            // Normal movement, no jump detected
-            marker.setLngLat(newLngLat);
+    function wrapLongitude(currentLng, newLng) {
+        let diff = newLng - currentLng;
+        // If the difference is large, adjust the new longitude by adding or subtracting 360
+        if (diff > 180) {
+            newLng -= 360;
+        } else if (diff < -180) {
+            newLng += 360;
         }
+        return newLng;
     }
-    // --- End Core Fix ---
+
+    // Function to update the marker using the wrapping logic
+    function updateMarker(marker, newLngLat) {
+        const currentLngLat = marker.getLngLat().toArray();
+        const currentLng = currentLngLat[0];
+
+        // Apply wrapping logic only to the longitude
+        const wrappedLng = wrapLongitude(currentLng, newLngLat[0]);
+        
+        // Update the marker with the new, wrapped longitude
+        marker.setLngLat([wrappedLng, newLngLat[1]]);
+    }
+    // --- END CRITICAL FIX FUNCTION ---
 
 
     // LIVE ISS tracking (using API) 
@@ -122,8 +122,8 @@
     async function updateISS() {
       try {
         const newLoc = await getISSLocation();
-        // Use the new Antimeridian handler
-        handleMarkerAntimeridian(issMarker, newLoc);
+        // Use the new marker update function
+        updateMarker(issMarker, newLoc);
       } catch (e) {
         console.error('ISS fetch error', e);
       }
@@ -140,8 +140,10 @@
     satScript.onload = () => { satReady = true; tryDraw(); };
     map.on('load', () => { mapReady = true; tryDraw(); });
 
-    // --- Utility Functions ---
+    // --- TLE Utility Functions ---
 
+    // NOTE: This function's purpose changes slightly. It MUST return the standard -180 to 180 range
+    // because the orbit line logic relies on detecting the >180 jump. The marker logic handles the wrapping visually.
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
@@ -160,7 +162,8 @@
         return [longitude, latitude];
     }
 
-    // Splits a line into segments if it crosses the antimeridian
+    // ... (splitForAntimeridian and computeOrbit functions remain the same as they correctly handle the lines) ...
+
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -236,7 +239,6 @@
     }
 
     function drawOrbits() {
-      // Use helper variables to reference the TLEs
       const issT1 = TLE.ISS.line1;
       const issT2 = TLE.ISS.line2;
       const tianheT1 = TLE.TIANGONG.line1;
@@ -248,17 +250,12 @@
       drawWrappedLine('issOrbit', issCoords, 'red');
       drawWrappedLine('tianheOrbit', tgCoords, 'blue');
 
-      console.log('ISS orbit points:', issCoords.length, 'Tiangong orbit points:', tgCoords.length);
-
-      // Start the interval to update the predicted path every minute
       setInterval(() => {
           const issNewCoords = computeOrbit(issT1, issT2);
           drawWrappedLine('issOrbit', issNewCoords, 'red');
 
           const tgNewCoords = computeOrbit(tianheT1, tianheT2);
           drawWrappedLine('tianheOrbit', tgNewCoords, 'blue');
-
-          console.log('Orbits refreshed');
       }, 60000); // Refresh orbit path every 60 seconds
     }
     
@@ -270,8 +267,8 @@
             // --- Update Tiangong ---
             const tiangongPos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
             if (tiangongPos) {
-                // Use the new Antimeridian handler
-                handleMarkerAntimeridian(tiangongMarker, tiangongPos);
+                // Use the new marker update function
+                updateMarker(tiangongMarker, tiangongPos);
             }
         }, 1000); // Update position every 1 second for smooth movement
     }
