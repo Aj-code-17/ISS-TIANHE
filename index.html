@@ -6,22 +6,53 @@
   <title>ISS & Tiangong Tracker</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" />
   <style>
-    body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    body { margin: 0; padding: 0; height: auto; }
+    #map { position: relative; height: 100vh; width: 100%; }
     .marker {
       background-size: cover;
       width: 40px;
       height: 40px;
       transform: translate(-50%, -50%);
     }
+    /* Added styles for info panels (visible on scroll down) */
+    .info-section {
+      padding: 20px;
+      background-color: #2f2f2f;
+      color: #fff;
+      display: flex;
+      justify-content: space-around;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <!-- Added info section below map; updates live; scroll down to view -->
+  <div class="info-section">
+    <div class="orbital-data">
+      <h4>ISS Orbital Data</h4>
+      <p>Position-Time (GMT/UTC+5): <span id="iss-time"></span></p>
+      <p>Speed: <span id="iss-speed"></span> km/h</p>
+      <p>Altitude: <span id="iss-altitude"></span> km</p>
+      <p>Latitude: <span id="iss-lat"></span></p>
+      <p>Longitude: <span id="iss-lon"></span></p>
+      <p>Distance Loc.: <span id="iss-distance"></span> km</p>
+      <p>The current Earth orbital period is: <span id="iss-period"></span></p>
+    </div>
+    <div class="orbital-data">
+      <h4>Tiangong Orbital Data</h4>
+      <p>Position-Time (GMT/UTC+5): <span id="tg-time"></span></p>
+      <p>Speed: <span id="tg-speed"></span> km/h</p>
+      <p>Altitude: <span id="tg-altitude"></span> km</p>
+      <p>Latitude: <span id="tg-lat"></span></p>
+      <p>Longitude: <span id="tg-lon"></span></p>
+      <p>Distance Loc.: <span id="tg-distance"></span> km</p>
+      <p>The current Earth orbital period is: <span id="tg-period"></span></p>
+    </div>
+  </div>
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
   <script>
-    // 1. TLE Data (Updated to latest from CelesTrak as of 2025-11-29)
+    // 1. TLE Data (User Provided - NOT CHANGED)
     const TLE = {
       ISS: {
         line1: '1 25544U 98067A   25332.93143523  .00009407  00000+0  17759-3 0  9996',
@@ -59,7 +90,6 @@
       center: [0, 0],
       zoom: 1.5,
       interactive: true,
-      // CRITICAL: Allow MapLibre to handle multiple world copies for smooth movement
       renderWorldCopies: true
     });
     // Function to create custom HTML element for markers
@@ -73,22 +103,80 @@
       .setLngLat([0, 0]).addTo(map);
     const tiangongMarker = new maplibregl.Marker({ element: createMarkerElement('tiangong.png') })
       .setLngLat([0, 0]).addTo(map);
-    // --- FIXED: Simplified marker update to use normalized positions, allowing jump (disappear on right, appear on left) ---
+    // FIXED: Simplified marker update to use normalized positions, allowing jump (disappear on right, appear on left)
     function updateMarker(marker, newLngLat) {
         marker.setLngLat(newLngLat);
     }
-    // --- END MARKER UPDATE ---
-    // LIVE ISS tracking (using API)
-    async function getISSLocation() {
-      const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
-      const d = await resp.json();
-      return [d.longitude, d.latitude];
+    // Get user's location for distance calculation (with permission)
+    let userLat, userLon;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+      }, err => {
+        console.error('Geolocation error', err);
+      });
     }
+    // Haversine formula for distance
+    const degToRad = deg => deg * Math.PI / 180;
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = degToRad(lat2 - lat1);
+      const dLon = degToRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(degToRad(lat1)) * Math.cos(degToRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+    // LIVE ISS tracking (using API) with data updates
     async function updateISS() {
       try {
-        const newLoc = await getISSLocation();
-        // Use the new marker update function
-        updateMarker(issMarker, newLoc);
+        const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+        const d = await resp.json();
+        updateMarker(issMarker, [d.longitude, d.latitude]);
+        // Update display data
+        const lat = d.latitude;
+        const lon = d.longitude;
+        const latStr = `${Math.abs(lat).toFixed(2)} ${lat < 0 ? 'South' : 'North'}`;
+        const lonStr = `${Math.abs(lon).toFixed(2)} ${lon < 0 ? 'West' : 'East'}`;
+        // Time in UTC+5
+        const date = new Date(d.timestamp * 1000);
+        let hours = date.getUTCHours() + 5;
+        let carryDays = 0;
+        if (hours >= 24) {
+          hours -= 24;
+          carryDays = 1;
+        }
+        const tempDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + carryDays);
+        const day = tempDate.getUTCDate();
+        const monthIndex = tempDate.getUTCMonth();
+        const year = tempDate.getUTCFullYear();
+        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][monthIndex];
+        const mins = String(date.getUTCMinutes()).padStart(2, '0');
+        const secs = String(date.getUTCSeconds()).padStart(2, '0');
+        const timeStr = `${day}. ${month}. ${year}, ${String(hours).padStart(2, '0')}:${mins}:${secs}`;
+        document.getElementById('iss-time').innerText = timeStr;
+        document.getElementById('iss-speed').innerText = d.velocity.toFixed(2);
+        document.getElementById('iss-altitude').innerText = d.altitude.toFixed(2);
+        document.getElementById('iss-lat').innerText = latStr;
+        document.getElementById('iss-lon').innerText = lonStr;
+        let distStr = 'N/A';
+        if (typeof userLat !== 'undefined') {
+          const dist = haversine(lat, lon, userLat, userLon);
+          distStr = dist.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+        document.getElementById('iss-distance').innerText = distStr;
+        // Orbital period
+        const GM = 3.986004418e5;
+        const a = 6371 + d.altitude;
+        const period_sec = 2 * Math.PI * Math.sqrt(a ** 3 / GM);
+        const min = Math.floor(period_sec / 60);
+        const sec = Math.round(period_sec % 60);
+        const meanMotion = parseFloat(TLE.ISS.line2.split(/\s+/)[7]);
+        const period_avg = 1440 / meanMotion;
+        const min_avg = Math.floor(period_avg);
+        const sec_avg = Math.round((period_avg - min_avg) * 60);
+        const periodStr = `${min} m ${String(sec).padStart(2, '0')} s (on average ∅: ${min_avg} m ${String(sec_avg).padStart(2, '0')} s | ${meanMotion} orbits per day)`;
+        document.getElementById('iss-period').innerText = periodStr;
       } catch (e) {
         console.error('ISS fetch error', e);
       }
@@ -102,26 +190,23 @@
     let satReady = false, mapReady = false;
     satScript.onload = () => { satReady = true; tryDraw(); };
     map.on('load', () => { mapReady = true; tryDraw(); });
-    // --- TLE Utility Functions ---
-    // NOTE: This function's purpose changes slightly. It MUST return the standard -180 to 180 range
-    // because the orbit line logic relies on detecting the >180 jump. The marker logic handles the wrapping visually.
+    // TLE Utility Functions
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
-   
     function getSatellitePosition(tleLine1, tleLine2, date) {
         const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
         const positionAndVelocity = satellite.propagate(satrec, date);
-       
         if (!positionAndVelocity.position) return null;
         const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, satellite.gstime(date));
-       
         const longitude = normalizeLng(satellite.degreesLong(positionGd.longitude));
         const latitude = satellite.degreesLat(positionGd.latitude);
-       
-        return [longitude, latitude];
+        const altitude = positionGd.height;
+        const velocity_km_s = Math.sqrt(positionAndVelocity.velocity.x ** 2 + positionAndVelocity.velocity.y ** 2 + positionAndVelocity.velocity.z ** 2);
+        const velocity = velocity_km_s * 3600;
+        return { longitude, latitude, altitude, velocity, timestamp: date.getTime() / 1000 };
     }
-    // FIXED: Improved antimeridian splitting with intersection calculation to avoid gaps and straight lines
+    // splitForAntimeridian and computeOrbit remain the same
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -133,7 +218,6 @@
         if (Math.abs(diff) <= 180) {
           current.push(cur);
         } else {
-          // Cross antimeridian - calculate intersection
           let boundary, unwrappedDiff;
           if (diff > 180) {
             unwrappedDiff = diff - 360;
@@ -144,10 +228,8 @@
           }
           const t = (boundary - prev[0]) / unwrappedDiff;
           const intersectLat = prev[1] + t * (cur[1] - prev[1]);
-          // Add intersection to current segment
           current.push([boundary, intersectLat]);
           segments.push(current);
-          // Start new segment with intersection from the other side
           const nextBoundary = -boundary;
           current = [[nextBoundary, intersectLat], cur];
         }
@@ -162,20 +244,17 @@
         const t = new Date(now.getTime() + i * 60 * 1000);
         const pos = getSatellitePosition(tle1, tle2, t);
         if (pos) {
-          coordinates.push(pos);
+          coordinates.push([pos.longitude, pos.latitude]);
         }
       }
       return coordinates;
     }
-    // --- End Utility Functions ---
     function tryDraw() {
       if (!satReady || !mapReady) return;
       drawOrbits();
       updateSatellitePositions();
     }
-    // Draws line segments, handling the antimeridian crossing
     function drawWrappedLine(idBase, coords, color) {
-      // Clean up old layers/sources
       for (let i = 0; i < 5; i++) {
         const sourceId = `${idBase}_${i}`;
         const layerId = `${idBase}_${i}`;
@@ -198,7 +277,6 @@
           paint: {
             'line-color': color,
             'line-width': 2
-            // FIXED: Removed 'line-dasharray' to make lines solid
           }
         });
       });
@@ -217,23 +295,62 @@
           drawWrappedLine('issOrbit', issNewCoords, 'red');
           const tgNewCoords = computeOrbit(tianheT1, tianheT2);
           drawWrappedLine('tianheOrbit', tgNewCoords, 'blue');
-      }, 60000); // Refresh orbit path every 60 seconds
+      }, 60000);
     }
-   
-    // Function to update the live Tiangong marker
+    // Update Tiangong with data updates
     function updateSatellitePositions() {
         setInterval(() => {
             const now = new Date();
-           
-            // --- Update Tiangong ---
             const tiangongPos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
             if (tiangongPos) {
-                // Use the new marker update function
-                updateMarker(tiangongMarker, tiangongPos);
+                updateMarker(tiangongMarker, [tiangongPos.longitude, tiangongPos.latitude]);
+                // Update display data (similar to ISS)
+                const lat = tiangongPos.latitude;
+                const lon = tiangongPos.longitude;
+                const latStr = `${Math.abs(lat).toFixed(2)} ${lat < 0 ? 'South' : 'North'}`;
+                const lonStr = `${Math.abs(lon).toFixed(2)} ${lon < 0 ? 'West' : 'East'}`;
+                // Time in UTC+5
+                const date = new Date(tiangongPos.timestamp * 1000);
+                let hours = date.getUTCHours() + 5;
+                let carryDays = 0;
+                if (hours >= 24) {
+                  hours -= 24;
+                  carryDays = 1;
+                }
+                const tempDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + carryDays);
+                const day = tempDate.getUTCDate();
+                const monthIndex = tempDate.getUTCMonth();
+                const year = tempDate.getUTCFullYear();
+                const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][monthIndex];
+                const mins = String(date.getUTCMinutes()).padStart(2, '0');
+                const secs = String(date.getUTCSeconds()).padStart(2, '0');
+                const timeStr = `${day}. ${month}. ${year}, ${String(hours).padStart(2, '0')}:${mins}:${secs}`;
+                document.getElementById('tg-time').innerText = timeStr;
+                document.getElementById('tg-speed').innerText = tiangongPos.velocity.toFixed(2);
+                document.getElementById('tg-altitude').innerText = tiangongPos.altitude.toFixed(2);
+                document.getElementById('tg-lat').innerText = latStr;
+                document.getElementById('tg-lon').innerText = lonStr;
+                let distStr = 'N/A';
+                if (typeof userLat !== 'undefined') {
+                  const dist = haversine(lat, lon, userLat, userLon);
+                  distStr = dist.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                }
+                document.getElementById('tg-distance').innerText = distStr;
+                // Orbital period
+                const GM = 3.986004418e5;
+                const a = 6371 + tiangongPos.altitude;
+                const period_sec = 2 * Math.PI * Math.sqrt(a ** 3 / GM);
+                const min = Math.floor(period_sec / 60);
+                const sec = Math.round(period_sec % 60);
+                const meanMotion = parseFloat(TLE.TIANGONG.line2.split(/\s+/)[7]);
+                const period_avg = 1440 / meanMotion;
+                const min_avg = Math.floor(period_avg);
+                const sec_avg = Math.round((period_avg - min_avg) * 60);
+                const periodStr = `${min} m ${String(sec).padStart(2, '0')} s (on average ∅: ${min_avg} m ${String(sec_avg).padStart(2, '0')} s | ${meanMotion} orbits per day)`;
+                document.getElementById('tg-period').innerText = periodStr;
             }
-        }, 1000); // Update position every 1 second for smooth movement
+        }, 1000);
     }
-   
   </script>
 </body>
 </html>
