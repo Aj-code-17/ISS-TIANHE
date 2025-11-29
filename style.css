@@ -14,7 +14,7 @@ body {
 
 /* Import fonts */
 @import url('https://fonts.googleapis.com/css?family=Fjalla+One:regular');
-@import url('https://fonts.googleapis.com/css?family=Space+Grotesk:300,regular,500,600,700');
+@import url('https://fonts.com/css?family=Space+Grotesk:300,regular,500,600,700');
 
 /* Define custom fonts (if needed) */
 @font-face {
@@ -110,7 +110,14 @@ a:active {
     width: 70vw;
     border: 2px solid black;
     margin-top: 10px;
+    /* Removed position: absolute; if it was present, as it conflicts with flex parent */
 }
+
+/* 💡 CRITICAL FIX: Overrides any dash style applied by JS or plugins to force solid lines */
+.leaflet-container svg path {
+    stroke-dasharray: none !important;
+}
+
 
 #exp-img-container {
     display: flex;
