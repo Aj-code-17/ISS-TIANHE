@@ -22,7 +22,6 @@ L.NonWrappingMarker = L.Marker.extend({
         }
 
         // Use the corrected longitude for the marker's internal position
-        // CRITICAL: Always use L.latLng object here
         this._latlng = L.latLng(latlng.lat, lng); 
 
         // Standard Leaflet update logic follows
@@ -40,6 +39,7 @@ L.nonWrappingMarker = function (latlng, options) {
 
 
 // Initialize map
+// Note: Ensure you have the CSS and Leaflet JS loaded in your HTML <head>
 let issMap = L.map('map-container', {
     maxBounds: [[-90, -180], [90, 180]],
     maxBoundsViscosity: 1,
@@ -57,7 +57,7 @@ let issIcon = L.icon({
     iconSize: [70, 50]
 });
 
-// Use the new custom marker type L.nonWrappingMarker
+// Use the new custom marker type L.nonWrappingMarker for ISS
 let marker = L.nonWrappingMarker([0, 0], { icon: issIcon, title: 'ISS Position', alt: 'ISS icon' }).addTo(issMap);
 
 // Tiangong Icon and Marker
@@ -65,19 +65,20 @@ const tiangongIcon = L.icon({
     iconUrl: 'tiangong.png',
     iconSize: [50, 50]
 });
-// Use the new custom marker type L.nonWrappingMarker
+// Use the new custom marker type L.nonWrappingMarker for Tiangong
 const tiangongMarker = L.nonWrappingMarker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
 let tiangongPath = [];
 
-// 💡 FIX APPLIED HERE: The polyline options define a SOLID line.
+// 💡 FINAL FIX APPLIED HERE: The polyline options define a SOLID line by explicitly setting dashArray: null
 const tiangongPolyline = L.polyline([], { 
     color: 'blue', 
     weight: 3, 
-    opacity: 0.8
+    opacity: 0.8,
+    dashArray: null // <--- Forces the line to be continuous and solid
 }).addTo(issMap); 
 
 
-// --- TLE Data (User Provided - NOT CHANGED) ---
+// --- TLE Data ---
 const TLE = {
     TIANGONG: {
         line1: '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990',
@@ -98,16 +99,16 @@ function getTiangongPosition(tleLine1, tleLine2, date) {
     const longitude = satellite.degreesLong(positionGd.longitude);
     const latitude = satellite.degreesLat(positionGd.latitude);
 
-    return L.latLng(latitude, longitude); // Return L.latLng object directly
+    return L.latLng(latitude, longitude); // Return L.latLng object
 }
 
-// --- ISS Function (Keeping simple API approach) ---
+// --- ISS Function (API Update) ---
 const getIssLocation = async () => {
     try {
         const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         const d = await resp.json();
         
-        // Directly use setLatLng with L.latLng object
+        // Use L.latLng object
         marker.setLatLng(L.latLng(d.latitude, d.longitude)); 
         
     } catch (e) {
