@@ -90,12 +90,13 @@ if (navigator.geolocation) {
     // Update user location displays (assuming HTML has the spans)
     if (document.getElementById('user-location-iss')) document.getElementById('user-location-iss').innerText = userCity;
     if (document.getElementById('user-location-tg')) document.getElementById('user-location-tg').innerText = userCity;
-    // Add user marker with city name above it
+    // Add user marker with city name above it, styled as a standard map pin
     const userIcon = L.divIcon({
-      html: `<div style="text-align:center; background:white; color:black; padding:2px; border-radius:3px; white-space:nowrap;">${userCity}</div>
-             <div style="background:green; width:20px; height:20px; border-radius:50%; margin:auto;"></div>`,
+      html: `<div style="text-align:center; background:white; color:black; padding:2px; border-radius:3px; white-space:nowrap; margin-bottom:-10px;">${userCity}</div>
+             <img src="https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" style="width:25px; height:41px; transform:translate(-50%, -100%);">`,
       className: '',
-      iconSize: [null, null]
+      iconSize: [25, 41],
+      iconAnchor: [12.5, 41]
     });
     L.marker([userLat, userLon], {icon: userIcon}).addTo(issMap);
   }, err => {
