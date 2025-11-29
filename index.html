@@ -8,12 +8,10 @@
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    /* Adjusted marker size for better visibility */
     .marker {
       background-size: cover;
       width: 40px; 
       height: 40px; 
-      /* Ensures icon is centered on the latitude/longitude point */
       transform: translate(-50%, -50%); 
     }
   </style>
@@ -23,16 +21,28 @@
 
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script>
-    // 1. Initialize MapLibre GL with Satellite Imagery Style
+    // 1. TLE Data (User Provided - NOT CHANGED)
+    const TLE = {
+      ISS: {
+        line1: '1 25544U 98067A   25332.93143523  .00009407  00000-0  17759-3 0  9997',
+        line2: '2 25544  51.6312 210.8341 0003738 180.7008 179.3975 15.49177370540716'
+      },
+      TIANGONG: {
+        line1: '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990',
+        line2: '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895'
+      }
+    };
+
+    // 2. Initialize MapLibre GL with Satellite Imagery Style
     const map = new maplibregl.Map({
       container: 'map',
-      // FIX: Using ESRI World Imagery for a real satellite map look
       style: {
         'version': 8,
         'sources': {
           'satellite-tiles': {
             'type': 'raster',
             'tiles': [
+              // FIX: Using ESRI World Imagery for a real satellite map look
               'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
             ],
             'tileSize': 256
@@ -49,8 +59,8 @@
         ]
       },
       center: [0, 0],
-      zoom: 1.5, // Slightly closer zoom
-      interactive: true // Allow user interaction
+      zoom: 1.5,
+      interactive: true
     });
 
     // Function to create custom HTML element for markers
@@ -94,10 +104,27 @@
     map.on('load', () => { mapReady = true; tryDraw(); });
 
     // --- Utility Functions ---
+
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
+    
+    // FIX: Combined TLE logic into a function for both marker and orbit calculation
+    function getSatellitePosition(tleLine1, tleLine2, date) {
+        const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
+        const positionAndVelocity = satellite.propagate(satrec, date);
+        
+        if (!positionAndVelocity.position) return null;
 
+        const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, satellite.gstime(date));
+        
+        const longitude = normalizeLng(satellite.degreesLong(positionGd.longitude));
+        const latitude = satellite.degreesLat(positionGd.latitude);
+        
+        return [longitude, latitude];
+    }
+
+    // Splits a line into segments if it crosses the antimeridian
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -119,34 +146,31 @@
     }
 
     function computeOrbit(tle1, tle2, minutes = 90) {
-      const satrec = satellite.twoline2satrec(tle1, tle2);
-      const now = new Date();
       const coordinates = [];
+      const now = new Date();
       for (let i = 0; i <= minutes; i++) {
         const t = new Date(now.getTime() + i * 60 * 1000);
-        const pv = satellite.propagate(satrec, t);
-        if (pv.position) {
-          const gmst = satellite.gstime(t);
-          const geo = satellite.eciToGeodetic(pv.position, gmst);
-          const lat = satellite.degreesLat(geo.latitude);
-          // FIX: Apply normalizeLng to ensure coordinates are within [-180, 180]
-          const lon = normalizeLng(satellite.degreesLong(geo.longitude)); 
-          coordinates.push([lon, lat]);
+        const pos = getSatellitePosition(tle1, tle2, t);
+        if (pos) {
+          coordinates.push(pos);
         }
       }
       return coordinates;
     }
+
     // --- End Utility Functions ---
 
     function tryDraw() {
       if (!satReady || !mapReady) return;
       drawOrbits();
+      // FIX: Start marker updates once Satellite.js is ready
+      updateSatellitePositions(); 
     }
 
     // Draws line segments, handling the antimeridian crossing
     function drawWrappedLine(idBase, coords, color) {
-      // First, remove old layers/sources if they exist from a previous call
-      for (let i = 0; i < 5; i++) { // Check up to 5 segments
+      // Clean up old layers/sources
+      for (let i = 0; i < 5; i++) {
         const sourceId = `${idBase}_${i}`;
         const layerId = `${idBase}_${i}`;
         if (map.getLayer(layerId)) { map.removeLayer(layerId); }
@@ -177,21 +201,19 @@
     }
 
     function drawOrbits() {
-      // TLE data provided by the user (as requested, this data is NOT changed)
-      const issT1 = '1 25544U 98067A   25332.93143523  .00009407  00000-0  17759-3 0  9997';
-      const issT2 = '2 25544  51.6312 210.8341 0003738 180.7008 179.3975 15.49177370540716';
-      const tianheT1 = '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990';
-      const tianheT2 = '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895';
-      
+      // Use helper variables to reference the TLEs
+      const issT1 = TLE.ISS.line1;
+      const issT2 = TLE.ISS.line2;
+      const tianheT1 = TLE.TIANGONG.line1;
+      const tianheT2 = TLE.TIANGONG.line2;
+
       const issCoords = computeOrbit(issT1, issT2);
       const tgCoords = computeOrbit(tianheT1, tianheT2);
 
       drawWrappedLine('issOrbit', issCoords, 'red');
       drawWrappedLine('tianheOrbit', tgCoords, 'blue');
 
-      console.log('ISS orbit points:', issCoords.length, 'Tiangong orbit points:', tgCoords.length);
-
-      // Start the interval to update the predicted path every minute (or 60 seconds)
+      // Start the interval to update the predicted path every minute
       setInterval(() => {
           const issNewCoords = computeOrbit(issT1, issT2);
           drawWrappedLine('issOrbit', issNewCoords, 'red');
@@ -200,9 +222,28 @@
           drawWrappedLine('tianheOrbit', tgNewCoords, 'blue');
 
           console.log('Orbits refreshed');
-      }, 60000); // Refresh orbit path every 60 seconds (1 minute)
+      }, 60000); // Refresh orbit path every 60 seconds
     }
+    
+    // FIX: New function to update the live Tiangong marker
+    function updateSatellitePositions() {
+        // This function runs the live, smooth, high-frequency TLE calculation
+        setInterval(() => {
+            const now = new Date();
+            
+            // --- Update Tiangong ---
+            const tiangongPos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
+            if (tiangongPos) {
+                tiangongMarker.setLngLat(tiangongPos);
+            }
+            
+            // OPTIONAL: Update ISS via TLE if the API ever fails
+            // const issPosTle = getSatellitePosition(TLE.ISS.line1, TLE.ISS.line2, now);
+            // if (issPosTle) { issMarker.setLngLat(issPosTle); }
 
+        }, 1000); // Update position every 1 second for smooth movement
+    }
+    
   </script>
 </body>
 </html>
