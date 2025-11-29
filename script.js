@@ -13,7 +13,6 @@ L.NonWrappingMarker = L.Marker.extend({
         const mapCenterLng = this._map.getCenter().lng;
         
         // Calculate the closest longitude copy to the center of the map.
-        // This is necessary because Leaflet projects all copies.
         let lng = latlng.lng;
         while (lng > mapCenterLng + 180) {
             lng -= 360;
@@ -23,7 +22,8 @@ L.NonWrappingMarker = L.Marker.extend({
         }
 
         // Use the corrected longitude for the marker's internal position
-        this._latlng = L.latLng(latlng.lat, lng);
+        // CRITICAL: Always use L.latLng object here
+        this._latlng = L.latLng(latlng.lat, lng); 
 
         // Standard Leaflet update logic follows
         if (this._icon) {
@@ -57,7 +57,7 @@ let issIcon = L.icon({
     iconSize: [70, 50]
 });
 
-// 🔄 Change: Use the new custom marker type L.nonWrappingMarker
+// Use the new custom marker type L.nonWrappingMarker
 let marker = L.nonWrappingMarker([0, 0], { icon: issIcon, title: 'ISS Position', alt: 'ISS icon' }).addTo(issMap);
 
 // Tiangong Icon and Marker
@@ -65,10 +65,16 @@ const tiangongIcon = L.icon({
     iconUrl: 'tiangong.png',
     iconSize: [50, 50]
 });
-// 🔄 Change: Use the new custom marker type L.nonWrappingMarker
+// Use the new custom marker type L.nonWrappingMarker
 const tiangongMarker = L.nonWrappingMarker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
 let tiangongPath = [];
-const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(issMap);
+
+// 💡 FIX APPLIED HERE: The polyline options define a SOLID line.
+const tiangongPolyline = L.polyline([], { 
+    color: 'blue', 
+    weight: 3, 
+    opacity: 0.8
+}).addTo(issMap); 
 
 
 // --- TLE Data (User Provided - NOT CHANGED) ---
@@ -92,7 +98,7 @@ function getTiangongPosition(tleLine1, tleLine2, date) {
     const longitude = satellite.degreesLong(positionGd.longitude);
     const latitude = satellite.degreesLat(positionGd.latitude);
 
-    return [latitude, longitude]; // Leaflet uses [lat, lng]
+    return L.latLng(latitude, longitude); // Return L.latLng object directly
 }
 
 // --- ISS Function (Keeping simple API approach) ---
@@ -101,8 +107,8 @@ const getIssLocation = async () => {
         const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         const d = await resp.json();
         
-        // 🔄 Change: Directly use setLatLng now that the marker itself handles the wrapping
-        marker.setLatLng([d.latitude, d.longitude]); 
+        // Directly use setLatLng with L.latLng object
+        marker.setLatLng(L.latLng(d.latitude, d.longitude)); 
         
     } catch (e) {
         console.error('ISS fetch error', e);
@@ -111,7 +117,7 @@ const getIssLocation = async () => {
 setInterval(getIssLocation, 5000);
 
 
-// --- Tiangong Functions (FIXED to use TLE) ---
+// --- Tiangong Functions (TLE Update and Path Logic) ---
 
 function updateTiangongPosition() {
     const now = new Date();
@@ -119,19 +125,19 @@ function updateTiangongPosition() {
 
     if (newLatLng) {
         const currentLng = tiangongMarker.getLatLng().lng;
-        const newLng = newLatLng[1];
-
-        // 1. 🔄 Change: Directly use setLatLng now that the marker itself handles the wrapping
+        const newLng = newLatLng.lng;
+        
+        // 1. Update Marker: The NonWrappingMarker handles the visual teleportation.
         tiangongMarker.setLatLng(newLatLng);
 
-        // 2. Path Line Logic: Only push coordinates if no jump occurs, otherwise start a new path segment.
-        if (tiangongPath.length === 0 || Math.abs(newLng - currentLng) < 180) {
-            tiangongPath.push(newLatLng);
-        } else {
-            // If it crosses the antimeridian, clear the path and start a new one
-            tiangongPath = [newLatLng];
+        // 2. Path Line Logic (Polyline Fix): Check for the jump
+        if (tiangongPath.length > 0 && Math.abs(newLng - currentLng) > 180) {
+            // If it crosses the antimeridian, reset the path to start a new segment
+            tiangongPath = [];
         }
-
+        
+        // Push the new point, then update the polyline
+        tiangongPath.push(newLatLng);
         tiangongPolyline.setLatLngs(tiangongPath);
     }
 }
