@@ -20,6 +20,8 @@
   <div id="map"></div>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
+
   <script>
     // 1. TLE Data (User Provided - NOT CHANGED)
     const TLE = {
@@ -42,7 +44,6 @@
           'satellite-tiles': {
             'type': 'raster',
             'tiles': [
-              // FIX: Using ESRI World Imagery for a real satellite map look
               'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
             ],
             'tileSize': 256
@@ -76,17 +77,50 @@
     const tiangongMarker = new maplibregl.Marker({ element: createMarkerElement('tiangong.png') })
       .setLngLat([0, 0]).addTo(map);
 
-    // LIVE ISS tracking (using API)
+    // LIVE ISS tracking (using API) - This part remains mostly the same,
+    // but we'll try to apply antimeridian handling to the marker's update.
     async function getISSLocation() {
       const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
       const d = await resp.json();
       return [d.longitude, d.latitude];
     }
 
+    // FIX: Antimeridian handling for marker movement
+    function handleMarkerAntimeridian(marker, currentLngLat, newLngLat) {
+        const [currentLng, currentLat] = currentLngLat;
+        const [newLng, newLat] = newLngLat;
+
+        // If the longitude difference is large, it might be crossing the antimeridian
+        if (Math.abs(newLng - currentLng) > 180) {
+            // Check if it's wrapping from +180 to -180 or vice-versa
+            // If newLng is much smaller than currentLng, it means it wrapped from positive to negative
+            if (newLng < currentLng && currentLng > 90 && newLng < -90) {
+                // To prevent the line across the map, we'll set the marker to appear on the other side
+                // This makes it visually "disappear" from one edge and "reappear" on the other.
+                // We briefly move it off-screen (e.g., beyond -180 or +180) and then reset it.
+                marker.setLngLat([(newLng > 0 ? -180 : 180), newLat]); // Instantly jump to the other edge
+                // Then, set to the actual new position after a very short delay for smoother visual 'teleport'
+                setTimeout(() => marker.setLngLat(newLngLat), 10);
+            } 
+            // If newLng is much larger than currentLng, it means it wrapped from negative to positive
+            else if (newLng > currentLng && currentLng < -90 && newLng > 90) {
+                 marker.setLngLat([(newLng > 0 ? -180 : 180), newLat]); // Instantly jump to the other edge
+                 setTimeout(() => marker.setLngLat(newLngLat), 10);
+            }
+            else { // For other large jumps, just set it directly
+                marker.setLngLat(newLngLat);
+            }
+        } else {
+            marker.setLngLat(newLngLat);
+        }
+    }
+
+
     async function updateISS() {
       try {
-        const loc = await getISSLocation();
-        issMarker.setLngLat(loc);
+        const newLoc = await getISSLocation();
+        const currentLoc = issMarker.getLngLat().toArray();
+        handleMarkerAntimeridian(issMarker, currentLoc, newLoc);
       } catch (e) {
         console.error('ISS fetch error', e);
       }
@@ -109,7 +143,6 @@
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
     
-    // FIX: Combined TLE logic into a function for both marker and orbit calculation
     function getSatellitePosition(tleLine1, tleLine2, date) {
         const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
         const positionAndVelocity = satellite.propagate(satrec, date);
@@ -163,7 +196,6 @@
     function tryDraw() {
       if (!satReady || !mapReady) return;
       drawOrbits();
-      // FIX: Start marker updates once Satellite.js is ready
       updateSatellitePositions(); 
     }
 
@@ -213,6 +245,8 @@
       drawWrappedLine('issOrbit', issCoords, 'red');
       drawWrappedLine('tianheOrbit', tgCoords, 'blue');
 
+      console.log('ISS orbit points:', issCoords.length, 'Tiangong orbit points:', tgCoords.length);
+
       // Start the interval to update the predicted path every minute
       setInterval(() => {
           const issNewCoords = computeOrbit(issT1, issT2);
@@ -225,22 +259,17 @@
       }, 60000); // Refresh orbit path every 60 seconds
     }
     
-    // FIX: New function to update the live Tiangong marker
+    // Function to update the live Tiangong marker
     function updateSatellitePositions() {
-        // This function runs the live, smooth, high-frequency TLE calculation
         setInterval(() => {
             const now = new Date();
             
             // --- Update Tiangong ---
             const tiangongPos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
             if (tiangongPos) {
-                tiangongMarker.setLngLat(tiangongPos);
+                const currentTiangongLoc = tiangongMarker.getLngLat().toArray();
+                handleMarkerAntimeridian(tiangongMarker, currentTiangongLoc, tiangongPos);
             }
-            
-            // OPTIONAL: Update ISS via TLE if the API ever fails
-            // const issPosTle = getSatellitePosition(TLE.ISS.line1, TLE.ISS.line2, now);
-            // if (issPosTle) { issMarker.setLngLat(issPosTle); }
-
         }, 1000); // Update position every 1 second for smooth movement
     }
     
