@@ -127,11 +127,25 @@
         // Update user location displays
         document.getElementById('user-location-iss').innerText = userCity;
         document.getElementById('user-location-tg').innerText = userCity;
-        // Add user marker with city name above it
+        // Add user marker with city name above it, styled as a standard map pin
         function createUserMarkerElement(city) {
           const el = document.createElement('div');
-          el.innerHTML = `<div style="text-align:center; background:white; color:black; padding:2px; border-radius:3px; white-space:nowrap;">${city}</div>
-                          <div style="background:green; width:20px; height:20px; border-radius:50%; margin:auto;"></div>`;
+          el.style.textAlign = 'center';
+          const label = document.createElement('div');
+          label.textContent = city;
+          label.style.background = 'white';
+          label.style.color = 'black';
+          label.style.padding = '2px';
+          label.style.borderRadius = '3px';
+          label.style.whiteSpace = 'nowrap';
+          label.style.marginBottom = '-10px'; // Position above pin
+          const pin = document.createElement('img');
+          pin.src = 'https://maps.google.com/mapfiles/ms/icons/red-pushpin.png'; // Standard red pin icon
+          pin.style.width = '32px';
+          pin.style.height = '48px';
+          pin.style.transform = 'translate(-50%, -100%)'; // Anchor at bottom
+          el.appendChild(label);
+          el.appendChild(pin);
           return el;
         }
         const userMarker = new maplibregl.Marker({element: createUserMarkerElement(userCity)})
