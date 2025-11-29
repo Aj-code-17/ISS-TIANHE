@@ -92,11 +92,15 @@ if (navigator.geolocation) {
     if (document.getElementById('user-location-tg')) document.getElementById('user-location-tg').innerText = userCity;
     // Add user marker with city name above it, styled as a standard map pin
     const userIcon = L.divIcon({
-      html: `<div style="text-align:center; background:white; color:black; padding:2px; border-radius:3px; white-space:nowrap; margin-bottom:-10px;">${userCity}</div>
-             <img src="https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" style="width:25px; height:41px; transform:translate(-50%, -100%);">`,
+      html: `
+        <div style="position:relative; width:25px; height:41px;">
+          <img src="https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" style="position:absolute; top:0; left:0; width:25px; height:41px;">
+          <div style="position:absolute; bottom:41px; left:50%; transform:translateX(-50%); background:white; color:black; padding:2px; border-radius:3px; white-space:nowrap;">${userCity}</div>
+        </div>
+      `,
       className: '',
       iconSize: [25, 41],
-      iconAnchor: [12.5, 41]
+      iconAnchor: [12.5, 41]  // Anchor at the pin tip (precise location), with text above
     });
     L.marker([userLat, userLon], {icon: userIcon}).addTo(issMap);
   }, err => {
