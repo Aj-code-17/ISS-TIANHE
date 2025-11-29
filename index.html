@@ -4,13 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Satellite Tracker</title>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin=""/>
     
     <style>
         body { margin: 0; padding: 0; }
+        /* 2. MAP CONTAINER FIX: Ensure it covers the screen and has the correct ID */
         #map-container { position: absolute; top: 0; bottom: 0; width: 100%; height: 100vh; }
+        
+        /* Marker Styling */
         .marker {
             background-size: cover;
             width: 40px; 
@@ -18,7 +22,7 @@
             transform: translate(-50%, -50%); 
         }
 
-        /* 💡 NEW CSS FIX: Overrides any dash style applied by JS or plugins */
+        /* 3. FINAL LINE FIX: Overrides any dash style applied by JS or plugins */
         .leaflet-container svg path {
             stroke-dasharray: none !important;
         }
@@ -59,10 +63,11 @@
 
 
         // Initialize map
+        // Note: The script will fail here if Leaflet JS hasn't loaded!
         let issMap = L.map('map-container', {
             maxBounds: [[-90, -180], [90, 180]],
             maxBoundsViscosity: 1,
-            worldCopyJump: true // Crucial for multi-world rendering
+            worldCopyJump: true
         }).setView([30, 0], 1.5);
 
         // Add a Tile Layer
@@ -85,12 +90,12 @@
         const tiangongMarker = L.nonWrappingMarker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
         let tiangongPath = [];
 
-        // 💡 Polyline Definition: Solid line options (dashArray: null included for safety)
+        // Polyline Definition: Solid line options
         const tiangongPolyline = L.polyline([], { 
             color: 'blue', 
             weight: 3, 
             opacity: 0.8,
-            dashArray: null // Explicitly sets to solid
+            dashArray: null 
         }).addTo(issMap); 
 
 
@@ -124,50 +129,3 @@
                 marker.setLatLng(L.latLng(d.latitude, d.longitude)); 
             } catch (e) {
                 console.error('ISS fetch error', e);
-            }
-        };
-        setInterval(getIssLocation, 5000);
-
-
-        // --- Tiangong Functions (TLE Update and Path Logic) ---
-        function updateTiangongPosition() {
-            const now = new Date();
-            const newLatLng = getTiangongPosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
-
-            if (newLatLng) {
-                const currentLng = tiangongMarker.getLatLng().lng;
-                const newLng = newLatLng.lng;
-                
-                // 1. Update Marker: Handled by L.NonWrappingMarker (Straight Line Fix)
-                tiangongMarker.setLatLng(newLatLng);
-
-                // 2. Path Line Logic: Check for the jump
-                if (tiangongPath.length > 0 && Math.abs(newLng - currentLng) > 180) {
-                    // Reset path if antimeridian crossed
-                    tiangongPath = [];
-                }
-                
-                // Push the new point, then update the polyline
-                tiangongPath.push(newLatLng);
-                tiangongPolyline.setLatLngs(tiangongPath);
-            }
-        }
-
-        // Initial Calls
-        // Wait for Satellite.js to load (already loaded by script tag, but waiting for 'onload' is safer)
-        if (typeof satellite !== 'undefined') {
-             updateTiangongPosition();
-             setInterval(updateTiangongPosition, 1000);
-        } else {
-             // Fallback for script loading
-             const satScriptElement = document.querySelector('script[src*="satellite.js"]');
-             if (satScriptElement) {
-                satScriptElement.onload = () => {
-                    updateTiangongPosition();
-                    setInterval(updateTiangongPosition, 1000);
-                };
-             }
-        }
-    </script>
-</body>
-</html>
