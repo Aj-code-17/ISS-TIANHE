@@ -4,31 +4,56 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>ISS & Tiangong Tracker</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" />
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    /* Adjusted marker size for better visibility */
     .marker {
       background-size: cover;
-      width: 30px;
-      height: 30px;
+      width: 40px; 
+      height: 40px; 
+      /* Ensures icon is centered on the latitude/longitude point */
+      transform: translate(-50%, -50%); 
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <script src="https://unpkg.com/maplibre-gl@2.1.9/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script>
-    // Initialize MapLibre GL
+    // 1. Initialize MapLibre GL with Satellite Imagery Style
     const map = new maplibregl.Map({
       container: 'map',
-      style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',  // colorful world map
+      // FIX: Using ESRI World Imagery for a real satellite map look
+      style: {
+        'version': 8,
+        'sources': {
+          'satellite-tiles': {
+            'type': 'raster',
+            'tiles': [
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+            ],
+            'tileSize': 256
+          }
+        },
+        'layers': [
+          {
+            'id': 'satellite-background',
+            'type': 'raster',
+            'source': 'satellite-tiles',
+            'minzoom': 0,
+            'maxzoom': 22
+          }
+        ]
+      },
       center: [0, 0],
-      zoom: 1,
-      interactive: false
+      zoom: 1.5, // Slightly closer zoom
+      interactive: true // Allow user interaction
     });
 
+    // Function to create custom HTML element for markers
     function createMarkerElement(iconUrl) {
       const el = document.createElement('div');
       el.className = 'marker';
@@ -41,7 +66,7 @@
     const tiangongMarker = new maplibregl.Marker({ element: createMarkerElement('tiangong.png') })
       .setLngLat([0, 0]).addTo(map);
 
-    // LIVE ISS tracking
+    // LIVE ISS tracking (using API)
     async function getISSLocation() {
       const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
       const d = await resp.json();
@@ -68,12 +93,11 @@
     satScript.onload = () => { satReady = true; tryDraw(); };
     map.on('load', () => { mapReady = true; tryDraw(); });
 
-    // Normalize longitude to [-180, 180)
+    // --- Utility Functions ---
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
 
-    // Split a line into segments if it crosses the antimeridian
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -83,9 +107,7 @@
         let cur = coords[i];
         const d = Math.abs(cur[0] - prev[0]);
         if (d > 180) {
-          // crossing antimeridian — end current segment, start new one
           segments.push(current);
-          // shift longitude for wrapping
           const wrappedLng = cur[0] > prev[0] ? cur[0] - 360 : cur[0] + 360;
           current = [ [wrappedLng, cur[1]] ];
         } else {
@@ -107,29 +129,43 @@
           const gmst = satellite.gstime(t);
           const geo = satellite.eciToGeodetic(pv.position, gmst);
           const lat = satellite.degreesLat(geo.latitude);
-          const lon = normalizeLng(satellite.degreesLong(geo.longitude));
+          // FIX: Apply normalizeLng to ensure coordinates are within [-180, 180]
+          const lon = normalizeLng(satellite.degreesLong(geo.longitude)); 
           coordinates.push([lon, lat]);
         }
       }
       return coordinates;
     }
+    // --- End Utility Functions ---
 
     function tryDraw() {
       if (!satReady || !mapReady) return;
       drawOrbits();
     }
 
+    // Draws line segments, handling the antimeridian crossing
     function drawWrappedLine(idBase, coords, color) {
+      // First, remove old layers/sources if they exist from a previous call
+      for (let i = 0; i < 5; i++) { // Check up to 5 segments
+        const sourceId = `${idBase}_${i}`;
+        const layerId = `${idBase}_${i}`;
+        if (map.getLayer(layerId)) { map.removeLayer(layerId); }
+        if (map.getSource(sourceId)) { map.removeSource(sourceId); }
+      }
+
       const segs = splitForAntimeridian(coords);
       segs.forEach((seg, idx) => {
-        map.addSource(`${idBase}_${idx}`, {
+        const sourceId = `${idBase}_${idx}`;
+        const layerId = `${idBase}_${idx}`;
+
+        map.addSource(sourceId, {
           type: 'geojson',
           data: { type: 'Feature', geometry: { type: 'LineString', coordinates: seg } }
         });
         map.addLayer({
-          id: `${idBase}_${idx}`,
+          id: layerId,
           type: 'line',
-          source: `${idBase}_${idx}`,
+          source: sourceId,
           layout: {},
           paint: {
             'line-color': color,
@@ -141,17 +177,30 @@
     }
 
     function drawOrbits() {
+      // TLE data provided by the user (as requested, this data is NOT changed)
       const issT1 = '1 25544U 98067A   25332.93143523  .00009407  00000-0  17759-3 0  9997';
       const issT2 = '2 25544  51.6312 210.8341 0003738 180.7008 179.3975 15.49177370540716';
-      const t1 = '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990';
-      const t2 = '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895';
+      const tianheT1 = '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990';
+      const tianheT2 = '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895';
+      
       const issCoords = computeOrbit(issT1, issT2);
-      const tgCoords = computeOrbit(t1, t2);
+      const tgCoords = computeOrbit(tianheT1, tianheT2);
 
       drawWrappedLine('issOrbit', issCoords, 'red');
       drawWrappedLine('tianheOrbit', tgCoords, 'blue');
 
       console.log('ISS orbit points:', issCoords.length, 'Tiangong orbit points:', tgCoords.length);
+
+      // Start the interval to update the predicted path every minute (or 60 seconds)
+      setInterval(() => {
+          const issNewCoords = computeOrbit(issT1, issT2);
+          drawWrappedLine('issOrbit', issNewCoords, 'red');
+
+          const tgNewCoords = computeOrbit(tianheT1, tianheT2);
+          drawWrappedLine('tianheOrbit', tgNewCoords, 'blue');
+
+          console.log('Orbits refreshed');
+      }, 60000); // Refresh orbit path every 60 seconds (1 minute)
     }
 
   </script>
