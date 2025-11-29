@@ -3,8 +3,43 @@ const script = document.createElement('script');
 script.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
 document.head.appendChild(script);
 
+// --- 💥 CRITICAL FIX: Custom Leaflet Marker Type 💥 ---
+// Define a custom marker that overrides the internal coordinate handling.
+// This prevents the line drawing when Leaflet's worldCopyJump fails for markers.
+L.NonWrappingMarker = L.Marker.extend({
+    // Override the coordinate transformation to use the "closest" longitude copy.
+    _setLatLng: function (latlng) {
+        // Get the map's current view center
+        const mapCenterLng = this._map.getCenter().lng;
+        
+        // Calculate the closest longitude copy to the center of the map.
+        // This is necessary because Leaflet projects all copies.
+        let lng = latlng.lng;
+        while (lng > mapCenterLng + 180) {
+            lng -= 360;
+        }
+        while (lng < mapCenterLng - 180) {
+            lng += 360;
+        }
+
+        // Use the corrected longitude for the marker's internal position
+        this._latlng = L.latLng(latlng.lat, lng);
+
+        // Standard Leaflet update logic follows
+        if (this._icon) {
+            this._reset();
+        }
+    }
+});
+
+// Define a factory function for easy creation
+L.nonWrappingMarker = function (latlng, options) {
+    return new L.NonWrappingMarker(latlng, options);
+};
+// --- END CUSTOM MARKER ---
+
+
 // Initialize map
-// Note: Ensure you have the CSS and Leaflet JS loaded in your HTML <head>
 let issMap = L.map('map-container', {
     maxBounds: [[-90, -180], [90, 180]],
     maxBoundsViscosity: 1,
@@ -22,15 +57,16 @@ let issIcon = L.icon({
     iconSize: [70, 50]
 });
 
-// Create ISS marker
-let marker = L.marker([0, 0], { icon: issIcon, title: 'ISS Position', alt: 'ISS icon' }).addTo(issMap);
+// 🔄 Change: Use the new custom marker type L.nonWrappingMarker
+let marker = L.nonWrappingMarker([0, 0], { icon: issIcon, title: 'ISS Position', alt: 'ISS icon' }).addTo(issMap);
 
 // Tiangong Icon and Marker
 const tiangongIcon = L.icon({
-    iconUrl: 'tiangong.png', // Ensure this image exists in your folder
+    iconUrl: 'tiangong.png',
     iconSize: [50, 50]
 });
-const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
+// 🔄 Change: Use the new custom marker type L.nonWrappingMarker
+const tiangongMarker = L.nonWrappingMarker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
 let tiangongPath = [];
 const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(issMap);
 
@@ -45,7 +81,6 @@ const TLE = {
 
 // --- TLE UTILITY FUNCTIONS ---
 
-// Function to get current position from TLE
 function getTiangongPosition(tleLine1, tleLine2, date) {
     const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
     const positionAndVelocity = satellite.propagate(satrec, date);
@@ -54,48 +89,20 @@ function getTiangongPosition(tleLine1, tleLine2, date) {
 
     const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, satellite.gstime(date));
 
-    // Convert radians to degrees
     const longitude = satellite.degreesLong(positionGd.longitude);
     const latitude = satellite.degreesLat(positionGd.latitude);
 
     return [latitude, longitude]; // Leaflet uses [lat, lng]
 }
 
-// 💥 FIX: Refined Antimeridian Handling for Leaflet Marker 💥
-function handleLeafletAntimeridian(marker, newLatLng) {
-    const currentLatLng = marker.getLatLng();
-    const [newLat, newLng] = newLatLng;
-
-    // The threshold for detecting a jump is typically 180 degrees
-    if (Math.abs(newLng - currentLatLng.lng) > 180) {
-        // Step 1: Immediately hide the marker icon element
-        const iconElement = marker.getElement();
-        if (iconElement) {
-            iconElement.style.opacity = '0';
-        }
-
-        // Step 2: Set the position to the new coordinates
-        marker.setLatLng(newLatLng);
-
-        // Step 3: Instantly show the marker again in the new position
-        // This makes the marker 'teleport' without drawing a connecting line.
-        if (iconElement) {
-            iconElement.style.opacity = '1';
-        }
-    } else {
-        // Normal movement
-        marker.setLatLng(newLatLng);
-    }
-}
-
-
 // --- ISS Function (Keeping simple API approach) ---
 const getIssLocation = async () => {
     try {
         const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         const d = await resp.json();
-        // Update the primary marker (assuming 'marker' is the ISS marker)
-        handleLeafletAntimeridian(marker, [d.latitude, d.longitude]);
+        
+        // 🔄 Change: Directly use setLatLng now that the marker itself handles the wrapping
+        marker.setLatLng([d.latitude, d.longitude]); 
         
     } catch (e) {
         console.error('ISS fetch error', e);
@@ -114,8 +121,8 @@ function updateTiangongPosition() {
         const currentLng = tiangongMarker.getLatLng().lng;
         const newLng = newLatLng[1];
 
-        // 1. FIX: Use the Antimeridian handler for the marker
-        handleLeafletAntimeridian(tiangongMarker, newLatLng);
+        // 1. 🔄 Change: Directly use setLatLng now that the marker itself handles the wrapping
+        tiangongMarker.setLatLng(newLatLng);
 
         // 2. Path Line Logic: Only push coordinates if no jump occurs, otherwise start a new path segment.
         if (tiangongPath.length === 0 || Math.abs(newLng - currentLng) < 180) {
