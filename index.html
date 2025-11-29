@@ -1,131 +1,278 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Satellite Tracker</title>
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin=""/>
-    
-    <style>
-        body { margin: 0; padding: 0; }
-        /* 2. MAP CONTAINER FIX: Ensure it covers the screen and has the correct ID */
-        #map-container { position: absolute; top: 0; bottom: 0; width: 100%; height: 100vh; }
-        
-        /* Marker Styling */
-        .marker {
-            background-size: cover;
-            width: 40px; 
-            height: 40px; 
-            transform: translate(-50%, -50%); 
-        }
-
-        /* 3. FINAL LINE FIX: Overrides any dash style applied by JS or plugins */
-        .leaflet-container svg path {
-            stroke-dasharray: none !important;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>ISS & Tiangong Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .marker {
+      background-size: cover;
+      width: 40px; 
+      height: 40px; 
+      transform: translate(-50%, -50%); 
+    }
+  </style>
 </head>
 <body>
-    <div id="map-container"></div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
+
+  <script>
+    // 1. TLE Data (User Provided - NOT CHANGED)
+    const TLE = {
+      ISS: {
+        line1: '1 25544U 98067A   25332.93143523  .00009407  00000-0  17759-3 0  9997',
+        line2: '2 25544  51.6312 210.8341 0003738 180.7008 179.3975 15.49177370540716'
+      },
+      TIANGONG: {
+        line1: '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990',
+        line2: '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895'
+      }
+    };
+
+    // 2. Initialize MapLibre GL with Satellite Imagery Style
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        'version': 8,
+        'sources': {
+          'satellite-tiles': {
+            'type': 'raster',
+            'tiles': [
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+            ],
+            'tileSize': 256
+          }
+        },
+        'layers': [
+          {
+            'id': 'satellite-background',
+            'type': 'raster',
+            'source': 'satellite-tiles',
+            'minzoom': 0,
+            'maxzoom': 22
+          }
+        ]
+      },
+      center: [0, 0],
+      zoom: 1.5,
+      interactive: true,
+      // CRITICAL: Allow MapLibre to handle multiple world copies for smooth movement
+      renderWorldCopies: true 
+    });
+
+    // Function to create custom HTML element for markers
+    function createMarkerElement(iconUrl) {
+      const el = document.createElement('div');
+      el.className = 'marker';
+      el.style.backgroundImage = `url(${iconUrl})`;
+      return el;
+    }
+
+    const issMarker = new maplibregl.Marker({ element: createMarkerElement('iss.png') })
+      .setLngLat([0, 0]).addTo(map);
+    const tiangongMarker = new maplibregl.Marker({ element: createMarkerElement('tiangong.png') })
+      .setLngLat([0, 0]).addTo(map);
+
+    // --- CRITICAL FIX FUNCTION FOR MARKERS ---
     
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20n69z7k77ySdaG4J+b2v7y7BqP+Y3J/sTz5hFm+j6M="
-            crossorigin=""></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
-
-    <script>
-        // --- 💥 CRITICAL FIX: Custom Leaflet Marker Type 💥 ---
-        L.NonWrappingMarker = L.Marker.extend({
-            _setLatLng: function (latlng) {
-                const mapCenterLng = this._map.getCenter().lng;
-                let lng = latlng.lng;
-                while (lng > mapCenterLng + 180) {
-                    lng -= 360;
-                }
-                while (lng < mapCenterLng - 180) {
-                    lng += 360;
-                }
-                this._latlng = L.latLng(latlng.lat, lng); 
-                if (this._icon) {
-                    this._reset();
-                }
-            }
-        });
-
-        L.nonWrappingMarker = function (latlng, options) {
-            return new L.NonWrappingMarker(latlng, options);
-        };
-        // --- END CUSTOM MARKER ---
-
-
-        // Initialize map
-        // Note: The script will fail here if Leaflet JS hasn't loaded!
-        let issMap = L.map('map-container', {
-            maxBounds: [[-90, -180], [90, 180]],
-            maxBoundsViscosity: 1,
-            worldCopyJump: true
-        }).setView([30, 0], 1.5);
-
-        // Add a Tile Layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(issMap);
-
-        // ISS Marker (Placeholder for icon URL)
-        let issIcon = L.icon({
-            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/International_Space_Station_%28Expedition_58_Patch%29.svg/500px-International_Space_Station_%28Expedition_58_Patch%29.svg.png',
-            iconSize: [70, 50]
-        });
-        let marker = L.nonWrappingMarker([0, 0], { icon: issIcon, title: 'ISS Position' }).addTo(issMap);
-
-        // Tiangong Marker
-        const tiangongIcon = L.icon({
-            iconUrl: 'tiangong.png', // Ensure this file is present
-            iconSize: [50, 50]
-        });
-        const tiangongMarker = L.nonWrappingMarker([0, 0], { icon: tiangongIcon, title: 'Tiangong' }).addTo(issMap);
-        let tiangongPath = [];
-
-        // Polyline Definition: Solid line options
-        const tiangongPolyline = L.polyline([], { 
-            color: 'blue', 
-            weight: 3, 
-            opacity: 0.8,
-            dashArray: null 
-        }).addTo(issMap); 
-
-
-        // --- TLE Data ---
-        const TLE = {
-            TIANGONG: {
-                line1: '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990',
-                line2: '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895'
-            }
-        };
-
-        // --- TLE UTILITY FUNCTIONS ---
-        function getTiangongPosition(tleLine1, tleLine2, date) {
-            const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
-            const positionAndVelocity = satellite.propagate(satrec, date);
-
-            if (!positionAndVelocity.position) return null;
-
-            const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, satellite.gstime(date));
-            const longitude = satellite.degreesLong(positionGd.longitude);
-            const latitude = satellite.degreesLat(positionGd.latitude);
-
-            return L.latLng(latitude, longitude); 
+    /**
+     * Finds the longitude closest to the current one, solving the jump issue.
+     * @param {number} currentLng - The marker's current longitude (which may be outside -180/180)
+     * @param {number} newLng - The calculated new longitude (-180 to 180)
+     * @returns {number} The corrected longitude that minimizes the distance, preventing the line.
+     */
+    function wrapLongitude(currentLng, newLng) {
+        let diff = newLng - currentLng;
+        // If the difference is large, adjust the new longitude by adding or subtracting 360
+        if (diff > 180) {
+            newLng -= 360;
+        } else if (diff < -180) {
+            newLng += 360;
         }
+        return newLng;
+    }
 
-        // --- ISS Function (API Update) ---
-        const getIssLocation = async () => {
-            try {
-                const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
-                const d = await resp.json();
-                marker.setLatLng(L.latLng(d.latitude, d.longitude)); 
-            } catch (e) {
-                console.error('ISS fetch error', e);
+    // Function to update the marker using the wrapping logic
+    function updateMarker(marker, newLngLat) {
+        const currentLngLat = marker.getLngLat().toArray();
+        const currentLng = currentLngLat[0];
+
+        // Apply wrapping logic only to the longitude
+        const wrappedLng = wrapLongitude(currentLng, newLngLat[0]);
+        
+        // Update the marker with the new, wrapped longitude
+        marker.setLngLat([wrappedLng, newLngLat[1]]);
+    }
+    // --- END CRITICAL FIX FUNCTION ---
+
+
+    // LIVE ISS tracking (using API) 
+    async function getISSLocation() {
+      const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+      const d = await resp.json();
+      return [d.longitude, d.latitude];
+    }
+
+    async function updateISS() {
+      try {
+        const newLoc = await getISSLocation();
+        // Use the new marker update function
+        updateMarker(issMarker, newLoc);
+      } catch (e) {
+        console.error('ISS fetch error', e);
+      }
+    }
+    updateISS();
+    setInterval(updateISS, 5000);
+
+    // Load Satellite.js
+    const satScript = document.createElement('script');
+    satScript.src = 'https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js';
+    document.head.appendChild(satScript);
+
+    let satReady = false, mapReady = false;
+    satScript.onload = () => { satReady = true; tryDraw(); };
+    map.on('load', () => { mapReady = true; tryDraw(); });
+
+    // --- TLE Utility Functions ---
+
+    // NOTE: This function's purpose changes slightly. It MUST return the standard -180 to 180 range
+    // because the orbit line logic relies on detecting the >180 jump. The marker logic handles the wrapping visually.
+    function normalizeLng(lng) {
+      return ((lng + 180) % 360 + 360) % 360 - 180;
+    }
+    
+    function getSatellitePosition(tleLine1, tleLine2, date) {
+        const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
+        const positionAndVelocity = satellite.propagate(satrec, date);
+        
+        if (!positionAndVelocity.position) return null;
+
+        const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, satellite.gstime(date));
+        
+        const longitude = normalizeLng(satellite.degreesLong(positionGd.longitude));
+        const latitude = satellite.degreesLat(positionGd.latitude);
+        
+        return [longitude, latitude];
+    }
+
+    // ... (splitForAntimeridian and computeOrbit functions remain the same as they correctly handle the lines) ...
+
+    function splitForAntimeridian(coords) {
+      if (!coords.length) return [];
+      const segments = [];
+      let current = [ coords[0] ];
+      for (let i = 1; i < coords.length; i++) {
+        const prev = coords[i - 1];
+        let cur = coords[i];
+        const d = Math.abs(cur[0] - prev[0]);
+        if (d > 180) {
+          segments.push(current);
+          const wrappedLng = cur[0] > prev[0] ? cur[0] - 360 : cur[0] + 360;
+          current = [ [wrappedLng, cur[1]] ];
+        } else {
+          current.push(cur);
+        }
+      }
+      segments.push(current);
+      return segments;
+    }
+
+    function computeOrbit(tle1, tle2, minutes = 90) {
+      const coordinates = [];
+      const now = new Date();
+      for (let i = 0; i <= minutes; i++) {
+        const t = new Date(now.getTime() + i * 60 * 1000);
+        const pos = getSatellitePosition(tle1, tle2, t);
+        if (pos) {
+          coordinates.push(pos);
+        }
+      }
+      return coordinates;
+    }
+
+    // --- End Utility Functions ---
+
+    function tryDraw() {
+      if (!satReady || !mapReady) return;
+      drawOrbits();
+      updateSatellitePositions(); 
+    }
+
+    // Draws line segments, handling the antimeridian crossing
+    function drawWrappedLine(idBase, coords, color) {
+      // Clean up old layers/sources
+      for (let i = 0; i < 5; i++) {
+        const sourceId = `${idBase}_${i}`;
+        const layerId = `${idBase}_${i}`;
+        if (map.getLayer(layerId)) { map.removeLayer(layerId); }
+        if (map.getSource(sourceId)) { map.removeSource(sourceId); }
+      }
+
+      const segs = splitForAntimeridian(coords);
+      segs.forEach((seg, idx) => {
+        const sourceId = `${idBase}_${idx}`;
+        const layerId = `${idBase}_${idx}`;
+
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: seg } }
+        });
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: sourceId,
+          layout: {},
+          paint: {
+            'line-color': color,
+            'line-width': 2,
+            'line-dasharray': [4, 4]
+          }
+        });
+      });
+    }
+
+    function drawOrbits() {
+      const issT1 = TLE.ISS.line1;
+      const issT2 = TLE.ISS.line2;
+      const tianheT1 = TLE.TIANGONG.line1;
+      const tianheT2 = TLE.TIANGONG.line2;
+
+      const issCoords = computeOrbit(issT1, issT2);
+      const tgCoords = computeOrbit(tianheT1, tianheT2);
+
+      drawWrappedLine('issOrbit', issCoords, 'red');
+      drawWrappedLine('tianheOrbit', tgCoords, 'blue');
+
+      setInterval(() => {
+          const issNewCoords = computeOrbit(issT1, issT2);
+          drawWrappedLine('issOrbit', issNewCoords, 'red');
+
+          const tgNewCoords = computeOrbit(tianheT1, tianheT2);
+          drawWrappedLine('tianheOrbit', tgNewCoords, 'blue');
+      }, 60000); // Refresh orbit path every 60 seconds
+    }
+    
+    // Function to update the live Tiangong marker
+    function updateSatellitePositions() {
+        setInterval(() => {
+            const now = new Date();
+            
+            // --- Update Tiangong ---
+            const tiangongPos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
+            if (tiangongPos) {
+                // Use the new marker update function
+                updateMarker(tiangongMarker, tiangongPos);
+            }
+        }, 1000); // Update position every 1 second for smooth movement
+    }
+    
+  </script>
+</body>
+</html>
