@@ -11,11 +11,9 @@ body {
     font-family: 'Space Grotesk', Arial, sans-serif; /* Use a default font */
     color: #fff; /* Set default text color to white */
 }
-
 /* Import fonts */
 @import url('https://fonts.googleapis.com/css?family=Fjalla+One:regular');
 @import url('https://fonts.com/css?family=Space+Grotesk:300,regular,500,600,700');
-
 /* Define custom fonts (if needed) */
 @font-face {
     font-family: 'saxmono';
@@ -23,37 +21,31 @@ body {
     font-style: normal;
     font-weight: bolder;
 }
-
 @font-face {
     font-family: 'helvetica';
     src: url('Fonts/HelveticaNeueCyr-Bold.woff');
     font-style: normal;
     font-weight: bolder;
 }
-
 h1 {
     font-family: 'helvetica', sans-serif;
     font-size: 45px;
 }
-
 h4 {
     font-size: 15px;
     text-align: center;
     text-decoration: underline;
     margin-top: 5px;
 }
-
 p {
     /* Font family inherited from body */
 }
-
 p img {
     display: inline-block;
     vertical-align: top;
     width: 20px;
     height: 13px;
 }
-
 button {
     font-size: 15px;
     font-weight: 700;
@@ -65,24 +57,19 @@ button {
     background-color: transparent; /* Make button background transparent */
     color: inherit; /* Inherit text color from body */
 }
-
 button:hover {
     background-color: rgba(0, 0, 0, 0.2); /* Add a semi-transparent black background on hover */
 }
-
 button:active {
     background-color: rgba(0, 0, 0, 0.4); /* Add a more opaque black background on click */
     transform: translateY(3px);
 }
-
 button:focus {
     outline: none;
 }
-
 i {
     font-size: 20px;
 }
-
 footer {
     display: flex;
     justify-content: center;
@@ -93,18 +80,15 @@ footer {
     text-decoration: none;
     font-size: 18px;
 }
-
 footer a:hover {
     color: orange;
 }
-
 footer a,
 a:visited,
 a:active {
     color: inherit;
     text-decoration: none;
 }
-
 #map-container {
     height: 75vh;
     width: 70vw;
@@ -112,13 +96,10 @@ a:active {
     margin-top: 10px;
     /* Removed position: absolute; if it was present, as it conflicts with flex parent */
 }
-
 /* 💡 CRITICAL FIX: Overrides any dash style applied by JS or plugins to force solid lines */
 .leaflet-container svg path {
     stroke-dasharray: none !important;
 }
-
-
 #exp-img-container {
     display: flex;
     justify-content: center;
@@ -126,24 +107,20 @@ a:active {
     width: 100%;
     height: 130px;
 }
-
 .header {
     display: flex;
     justify-content: space-between;
 }
-
 .head-img-container {
     display: flex;
     align-items: center;
     justify-content: center;
     margin-left: 30px;
 }
-
 .header img {
     width: 100px;
     height: 80px;
 }
-
 .main-container {
     width: 95vw;
     height: 100%;
@@ -151,14 +128,12 @@ a:active {
     justify-content: space-evenly;
     margin: 10px;
 }
-
 .panel-container {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
 }
-
 .orbital-data,
 .astro-data,
 .spacecraft-data {
@@ -171,57 +146,46 @@ a:active {
     padding: 5px;
     margin: 10px;
 }
-
 .orbital-data {
     height: 220px;
 }
-
 .astro-data {
     height: 500px;
 }
-
 .spacecraft-data {
     height: 230px;
 }
-
 .orbital-data span,
 .astro-data span,
 .spacecraft-data span {
     font-weight: 900;
 }
-
 .astro-data span,
 .spacecraft-data span {
     vertical-align: middle;
 }
-
 .astro-data a,
 .spacecraft-data a {
     text-decoration: none;
     color: inherit; /* Inherit text color from body */
 }
-
 .astro-data a:hover,
 .spacecraft-data a:hover {
     color: green;
 }
-
 #iss-horizon span {
     vertical-align: middle;
     text-align: center;
 }
-
 #iss-horizon-img {
     height: 25px;
     width: 25px;
     opacity: 0.7;
     margin-left: 20px;
 }
-
 #visibility {
     text-transform: capitalize;
 }
-
 #expedition {
     display: inline-flex;
     justify-content: center;
@@ -231,17 +195,14 @@ a:active {
     text-align: center;
     width: 100%;
 }
-
 #exp-img {
     width: 160px;
     height: 100%;
     text-align: center;
 }
-
 #exp {
     margin-left: 4px;
 }
-
 #commander {
     font-weight: normal;
 }
