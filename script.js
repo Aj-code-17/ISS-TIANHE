@@ -45,7 +45,7 @@ const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(issMap);
 
 // Tiangong Functions (using N2YO API)
 async function fetchTiangongPosition() {
-    const apiKey = '53LGUU-BLJ9LG-MJLP5Y-5F62'; // Replace with your N2YO.com API key
+    const apiKey = 'XHJLTW-DZYG28-2SYAU8-5M1X'; // Replace with your N2YO.com API key
     const noradId = 48274; // NORAD ID for Tiangong
     const observerLat = 0; // Your latitude
     const observerLng = 0; // Your longitude
