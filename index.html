@@ -138,19 +138,20 @@
           label.style.padding = '2px';
           label.style.borderRadius = '3px';
           label.style.whiteSpace = 'nowrap';
-          label.style.marginBottom = '-10px'; // Position above pin
           const pin = document.createElement('img');
-          pin.src = 'https://maps.google.com/mapfiles/ms/icons/red-pushpin.png'; // Standard red pin icon
+          pin.src = 'https://maps.google.com/mapfiles/ms/icons/red-pushpin.png';
           pin.style.width = '32px';
           pin.style.height = '48px';
-          pin.style.transform = 'translate(-50%, -100%)'; // Anchor at bottom
+          pin.style.display = 'block';
+          pin.style.margin = 'auto';
           el.appendChild(label);
           el.appendChild(pin);
           return el;
         }
-        const userMarker = new maplibregl.Marker({element: createUserMarkerElement(userCity)})
-          .setLngLat([userLon, userLat])
-          .addTo(map);
+        const userMarker = new maplibregl.Marker({
+          element: createUserMarkerElement(userCity),
+          anchor: 'bottom'  // Anchor the bottom center of the element (pin tip) to the precise location
+        }).setLngLat([userLon, userLat]).addTo(map);
       }, err => {
         console.error('Geolocation error', err);
         // Update displays to N/A if denied
