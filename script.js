@@ -34,61 +34,116 @@ const tiangongMarker = L.marker([0, 0], { icon: tiangongIcon, title: 'Tiangong' 
 let tiangongPath = [];
 const tiangongPolyline = L.polyline([], { color: 'blue' }).addTo(issMap);
 
-// --- ISS Function (Placeholder based on your code) ---
+
+// --- TLE Data (User Provided - NOT CHANGED) ---
+// We will use the TLE data from your last MapLibre attempt as it is the latest
+const TLE = {
+    TIANGONG: {
+        line1: '1 48274U 21035A   25333.06763102  .00014333  00000-0  18674-3 0  9990',
+        line2: '2 48274  41.4664  99.6574 0010668 290.8853  69.0842 15.58380651261895'
+    }
+};
+
+// --- TLE UTILITY FUNCTIONS ---
+
+// Function to get current position from TLE
+function getTiangongPosition(tleLine1, tleLine2, date) {
+    const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
+    const positionAndVelocity = satellite.propagate(satrec, date);
+
+    if (!positionAndVelocity.position) return null;
+
+    const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, satellite.gstime(date));
+
+    // Convert radians to degrees
+    const longitude = satellite.degreesLong(positionGd.longitude);
+    const latitude = satellite.degreesLat(positionGd.latitude);
+
+    return [latitude, longitude]; // Leaflet uses [lat, lng]
+}
+
+// FIX: Antimeridian Handling for Leaflet Marker
+// Leaflet's worldCopyJump attempts to fix the visual, but the marker needs help.
+function handleLeafletAntimeridian(marker, newLatLng) {
+    const currentLatLng = marker.getLatLng();
+    const [newLat, newLng] = newLatLng;
+
+    // Check if the jump is over 180 degrees
+    if (Math.abs(newLng - currentLatLng.lng) > 180) {
+        // Option 1: Teleport marker to the opposite map copy before setting final position.
+        // This is a common Leaflet hack to prevent the jump line.
+        let correctedLng = newLng > 0 ? newLng - 360 : newLng + 360;
+        
+        // Move the marker to the "off-screen" copy
+        marker.setLatLng([newLat, correctedLng]);
+
+        // Then move it back to the current copy's coordinates (the original newLng)
+        // Leaflet will handle the visual transition smoothly from the off-screen copy.
+        setTimeout(() => marker.setLatLng(newLatLng), 10); 
+    } else {
+        // Normal movement
+        marker.setLatLng(newLatLng);
+    }
+}
+
+
+// --- ISS Function (Keeping simple API approach) ---
 const getIssLocation = async () => {
-    // You can implement the ISS fetch here similarly to Tiangong
-    // or keep your existing logic.
+    try {
+        const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+        const d = await resp.json();
+        // Update the primary marker (assuming 'marker' is the ISS marker)
+        handleLeafletAntimeridian(marker, [d.latitude, d.longitude]);
+        
+        // Update ISS path here if needed...
+        
+    } catch (e) {
+        console.error('ISS fetch error', e);
+    }
 };
 setInterval(getIssLocation, 5000);
 
 
-// --- Tiangong Functions (FIXED) ---
-async function fetchTiangongPosition() {
-    // Your API Key
-    const apiKey = 'XHJLTW-DZYG28-2SYAU8-5M1X'; 
-    const noradId = 48274; // Tiangong
-    const observerLat = 0;
-    const observerLng = 0;
-    const observerAlt = 0;
-    const seconds = 1;
+// --- Tiangong Functions (FIXED to use TLE) ---
 
-    // FIX 1: Added a Proxy (corsproxy.io) to bypass browser security blocks
-    const proxyUrl = 'https://corsproxy.io/?'; 
-    
-    // FIX 2: Fixed URL syntax (changed /&apiKey to /?apiKey) and encoded the URI
-    const targetUrl = `https://api.n2yo.com/rest/v1/satellite/positions/${noradId}/${observerLat}/${observerLng}/${observerAlt}/${seconds}/?apiKey=${apiKey}`;
-    const url = proxyUrl + encodeURIComponent(targetUrl);
+function updateTiangongPosition() {
+    const now = new Date();
+    const newLatLng = getTiangongPosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, now);
 
-    try {
-        const response = await fetch(url);
+    if (newLatLng) {
+        // FIX: Use the Antimeridian handler
+        handleLeafletAntimeridian(tiangongMarker, newLatLng);
+
+        // Update Path Line (Only if the jump is not happening, to prevent path crossing)
+        const currentLng = tiangongMarker.getLatLng().lng;
+        const newLng = newLatLng[1];
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+        // Only push if the jump is less than 180 degrees (i.e., not crossing the Antimeridian)
+        if (tiangongPath.length === 0 || Math.abs(newLng - currentLng) < 180) {
+            tiangongPath.push(newLatLng);
+        } else {
+            // If it crosses the antimeridian, start a new path segment conceptually
+            // In Leaflet, this is done by resetting the path or starting a new polyline.
+            // For simplicity and quick fix, we just clear the path and start fresh.
+            tiangongPath = [newLatLng];
         }
 
-        const data = await response.json();
-
-        // Check if positions exist in response
-        if (data && data.positions && data.positions.length > 0) {
-            const position = data.positions[0];
-            const latitude = parseFloat(position.satlatitude);
-            const longitude = parseFloat(position.satlongitude);
-
-            // Update Marker
-            tiangongMarker.setLatLng([latitude, longitude]);
-            
-            // Update Path Line
-            tiangongPath.push([latitude, longitude]);
-            tiangongPolyline.setLatLngs(tiangongPath);
-            
-            console.log("Tiangong updated:", latitude, longitude);
-        }
-
-    } catch (error) {
-        console.error('Error fetching Tiangong position:', error);
+        tiangongPolyline.setLatLngs(tiangongPath);
     }
 }
 
 // Initial Calls
+script.onload = () => { // Wait for Satellite.js to load
+    updateTiangongPosition();
+    setInterval(updateTiangongPosition, 1000); // Update every 1 second for smoothness
+};
+
+
+// The original code below is fully removed:
+/*
+async function fetchTiangongPosition() {
+    // ... N2YO API logic
+}
 fetchTiangongPosition(); 
-setInterval(fetchTiangongPosition, 5000); // Update every 5 seconds
+setInterval(fetchTiangongPosition, 5000);
+*/
