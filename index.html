@@ -45,8 +45,8 @@
     /* Draggable Popup */
     #station-popup {
       position: absolute;
-      top: 150px;
-      left: 150px;
+      top: 120px;
+      left: 120px;
       background: rgba(0,0,0,0.95);
       color: white;
       padding: 20px;
@@ -80,24 +80,24 @@
   <!-- Draggable Popup -->
   <div id="station-popup">
     <div class="popup-header">
-      <h3 id="popup-title"></h3>
+      <h3 id="popup-title" style="margin:0;"></h3>
       <span class="popup-close" onclick="document.getElementById('station-popup').style.display='none'">×</span>
     </div>
-    <div id="popup-content"></div>
+    <div id="popup-content" style="line-height:1.6;"></div>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
   <script>
-    // Updated TLEs - Tiangong improved
+    // Your updated Tiangong TLE + ISS
     const TLE = {
       ISS: {
         line1: '1 25544U 98067A   26115.16771349  .00010683  00000-0  20209-3 0  9997',
         line2: '2 25544  51.6320 202.5215 0006921 348.0684  12.0139 15.48944607563533'
       },
       TIANGONG: {
-        line1: '1 48274U 21035A   26115.41234567  .00026500  00000+0  28800-3 0  9995',
-        line2: '2 48274  41.4682 283.4567 0006980 271.2345  88.7654 15.62956789123456'
+        line1: '1 48274U 21035A 26114.82012301 .00024940 00000+0 27063-3 0 9996',
+        line2: '2 48274 41.4671 287.0016 0006791 267.9229 92.0833 15.62898540284821'
       }
     };
 
@@ -131,35 +131,26 @@
     const issMarker = new maplibregl.Marker({ element: createMarker('iss.png', 'ISS') }).setLngLat([0,0]).addTo(map);
     const tiangongMarker = new maplibregl.Marker({ element: createMarker('tiangong.png', 'Tiangong') }).setLngLat([0,0]).addTo(map);
 
-    // Draggable logic
-    function makeDraggable(el) {
+    // Draggable Popup
+    function makeDraggable(popup) {
       let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      const header = el.querySelector('.popup-header');
+      const header = popup.querySelector('.popup-header');
 
-      header.onmousedown = dragMouseDown;
-
-      function dragMouseDown(e) {
+      header.onmousedown = (e) => {
         e.preventDefault();
         pos3 = e.clientX;
         pos4 = e.clientY;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-      }
-
-      function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        el.style.top = (el.offsetTop - pos2) + "px";
-        el.style.left = (el.offsetLeft - pos1) + "px";
-      }
-
-      function closeDragElement() {
-        document.onmouseup = null;
-        document.onmousemove = null;
-      }
+        document.onmouseup = () => { document.onmouseup = document.onmousemove = null; };
+        document.onmousemove = (e) => {
+          e.preventDefault();
+          pos1 = pos3 - e.clientX;
+          pos2 = pos4 - e.clientY;
+          pos3 = e.clientX;
+          pos4 = e.clientY;
+          popup.style.top = (popup.offsetTop - pos2) + "px";
+          popup.style.left = (popup.offsetLeft - pos1) + "px";
+        };
+      };
     }
 
     function showPopup(title, html) {
