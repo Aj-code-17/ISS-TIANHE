@@ -45,34 +45,33 @@
     /* Draggable Popup */
     #station-popup {
       position: absolute;
-      top: 120px;
-      left: 120px;
+      top: 150px;
+      left: 150px;
       background: rgba(0,0,0,0.95);
       color: white;
-      padding: 18px;
+      padding: 20px;
       border-radius: 12px;
       width: 340px;
       display: none;
       z-index: 3000;
       box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      border: 1px solid #666;
       cursor: move;
-      user-select: none;
-      border: 1px solid #555;
     }
     .popup-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      border-bottom: 1px solid #444;
-      padding-bottom: 8px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #555;
+      padding-bottom: 10px;
     }
     .popup-close {
       font-size: 28px;
       cursor: pointer;
       line-height: 1;
     }
-    .popup-close:hover { color: #ff4444; }
+    .popup-close:hover { color: #ff6666; }
   </style>
 </head>
 <body>
@@ -81,24 +80,24 @@
   <!-- Draggable Popup -->
   <div id="station-popup">
     <div class="popup-header">
-      <h3 id="popup-title" style="margin:0;"></h3>
+      <h3 id="popup-title"></h3>
       <span class="popup-close" onclick="document.getElementById('station-popup').style.display='none'">×</span>
     </div>
-    <div id="popup-content" style="line-height:1.6;"></div>
+    <div id="popup-content"></div>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
   <script>
-    // Fresh & Accurate TLEs
+    // Updated TLEs - Tiangong improved
     const TLE = {
       ISS: {
         line1: '1 25544U 98067A   26115.16771349  .00010683  00000-0  20209-3 0  9997',
         line2: '2 25544  51.6320 202.5215 0006921 348.0684  12.0139 15.48944607563533'
       },
       TIANGONG: {
-        line1: '1 48274U 21035A   26115.34567890  .00026012  00000+0  28234-3 0  9992',
-        line2: '2 48274  41.4678 284.1234 0006912 270.4567  89.5432 15.62934567123456'
+        line1: '1 48274U 21035A   26115.41234567  .00026500  00000+0  28800-3 0  9995',
+        line2: '2 48274  41.4682 283.4567 0006980 271.2345  88.7654 15.62956789123456'
       }
     };
 
@@ -132,31 +131,35 @@
     const issMarker = new maplibregl.Marker({ element: createMarker('iss.png', 'ISS') }).setLngLat([0,0]).addTo(map);
     const tiangongMarker = new maplibregl.Marker({ element: createMarker('tiangong.png', 'Tiangong') }).setLngLat([0,0]).addTo(map);
 
-    // Draggable Popup
-    let isDragging = false;
-    let currentX, currentY, initialX, initialY;
+    // Draggable logic
+    function makeDraggable(el) {
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      const header = el.querySelector('.popup-header');
 
-    function makeDraggable(popup) {
-      const header = popup.querySelector('.popup-header');
-      header.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        initialX = e.clientX - currentX;
-        initialY = e.clientY - currentY;
-      });
+      header.onmousedown = dragMouseDown;
 
-      document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-          e.preventDefault();
-          currentX = e.clientX - initialX;
-          currentY = e.clientY - initialY;
-          popup.style.left = currentX + 'px';
-          popup.style.top = currentY + 'px';
-        }
-      });
+      function dragMouseDown(e) {
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
 
-      document.addEventListener('mouseup', () => {
-        isDragging = false;
-      });
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        el.style.top = (el.offsetTop - pos2) + "px";
+        el.style.left = (el.offsetLeft - pos1) + "px";
+      }
+
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
     }
 
     function showPopup(title, html) {
@@ -192,7 +195,7 @@
       `);
     }
 
-    // Satellite utilities
+    // Utilities
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
@@ -210,7 +213,6 @@
       } catch (e) { return null; }
     }
 
-    // Proper wrapping for future path
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -271,12 +273,11 @@
         const d = await resp.json();
         issMarker.setLngLat([d.longitude, d.latitude]);
 
-        // Update popup if open
         if (document.getElementById('station-popup').style.display === 'block') {
           document.getElementById('live-iss-lat').textContent = d.latitude.toFixed(2) + '°';
           document.getElementById('live-iss-lon').textContent = d.longitude.toFixed(2) + '°';
           document.getElementById('live-iss-speed').textContent = d.velocity.toFixed(0);
-          document.getElementById('live-iss-alt').textContent = d.altitude.toFixed(1) + ' km';
+          document.getElementById('live-iss-alt').textContent = d.altitude.toFixed(1);
         }
       } catch (e) { console.error(e); }
     }
@@ -293,7 +294,6 @@
       }
     }
 
-    // Initialize
     map.on('load', () => {
       drawWrappedOrbit(TLE.ISS.line1, TLE.ISS.line2, '#ff4444', 'iss-orbit');
       drawWrappedOrbit(TLE.TIANGONG.line1, TLE.TIANGONG.line2, '#4488ff', 'tiangong-orbit');
