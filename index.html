@@ -80,7 +80,7 @@
   <!-- Draggable Popup -->
   <div id="station-popup">
     <div class="popup-header">
-      <h3 id="popup-title" style="margin:0;"></h3>
+      <h3 id="popup-title"></h3>
       <span class="popup-close" onclick="document.getElementById('station-popup').style.display='none'">×</span>
     </div>
     <div id="popup-content" style="line-height:1.6;"></div>
@@ -89,7 +89,7 @@
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
   <script>
-    // Your updated Tiangong TLE + ISS
+    // === YOUR EXACT TLEs ===
     const TLE = {
       ISS: {
         line1: '1 25544U 98067A   26115.16771349  .00010683  00000-0  20209-3 0  9997',
@@ -136,21 +136,30 @@
       let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
       const header = popup.querySelector('.popup-header');
 
-      header.onmousedown = (e) => {
+      header.onmousedown = dragMouseDown;
+
+      function dragMouseDown(e) {
         e.preventDefault();
         pos3 = e.clientX;
         pos4 = e.clientY;
-        document.onmouseup = () => { document.onmouseup = document.onmousemove = null; };
-        document.onmousemove = (e) => {
-          e.preventDefault();
-          pos1 = pos3 - e.clientX;
-          pos2 = pos4 - e.clientY;
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          popup.style.top = (popup.offsetTop - pos2) + "px";
-          popup.style.left = (popup.offsetLeft - pos1) + "px";
-        };
-      };
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        popup.style.top = (popup.offsetTop - pos2) + "px";
+        popup.style.left = (popup.offsetLeft - pos1) + "px";
+      }
+
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
     }
 
     function showPopup(title, html) {
@@ -164,7 +173,6 @@
       }
     }
 
-    // Click handlers
     issMarker.getElement().addEventListener('click', () => showISSInfo());
     tiangongMarker.getElement().addEventListener('click', () => showTiangongInfo());
 
@@ -186,7 +194,7 @@
       `);
     }
 
-    // Utilities
+    // Satellite position
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
@@ -204,6 +212,7 @@
       } catch (e) { return null; }
     }
 
+    // Proper wrapping for future path (fixes straight lines)
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -263,13 +272,6 @@
         const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         const d = await resp.json();
         issMarker.setLngLat([d.longitude, d.latitude]);
-
-        if (document.getElementById('station-popup').style.display === 'block') {
-          document.getElementById('live-iss-lat').textContent = d.latitude.toFixed(2) + '°';
-          document.getElementById('live-iss-lon').textContent = d.longitude.toFixed(2) + '°';
-          document.getElementById('live-iss-speed').textContent = d.velocity.toFixed(0);
-          document.getElementById('live-iss-alt').textContent = d.altitude.toFixed(1);
-        }
       } catch (e) { console.error(e); }
     }
 
@@ -277,11 +279,6 @@
       const pos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, new Date());
       if (pos) {
         tiangongMarker.setLngLat([pos.lng, pos.lat]);
-
-        if (document.getElementById('station-popup').style.display === 'block') {
-          document.getElementById('live-tg-lat').textContent = pos.lat.toFixed(2) + '°';
-          document.getElementById('live-tg-lon').textContent = pos.lng.toFixed(2) + '°';
-        }
       }
     }
 
@@ -292,7 +289,7 @@
       updateISS();
       updateTiangong();
 
-      setInterval(updateISS, 4000);
+      setInterval(updateISS, 5000);
       setInterval(updateTiangong, 2000);
 
       setInterval(() => {
