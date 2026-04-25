@@ -6,48 +6,55 @@
   <title>ISS & Tiangong Tracker</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" />
   <style>
-    body { margin: 0; padding: 0; height: auto; font-family: Arial, sans-serif; background: #000; color: #fff; }
-    #map { height: 65vh; width: 100%; }
-    .marker { background-size: cover; width: 44px; height: 44px; transform: translate(-50%, -50%); cursor: pointer; }
-    .info-section { padding: 20px; background: #1a1a1a; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
-    .orbital-data { background: #ffba81; color: #000; padding: 15px; border-radius: 8px; min-width: 280px; }
-    #station-popup {
-      position: absolute; top: 50%; right: 30px; transform: translateY(-50%);
-      background: rgba(0,0,0,0.9); color: white; padding: 18px; border-radius: 10px;
-      width: 300px; display: none; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+    body { 
+      margin: 0; 
+      padding: 0; 
+      height: 100vh; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif; 
+      background: #000; 
+      color: #fff; 
     }
-    .popup-close { float: right; font-size: 24px; cursor: pointer; }
+    #map { height: 100vh; width: 100%; }
+    .marker { 
+      background-size: cover; 
+      width: 48px; 
+      height: 48px; 
+      transform: translate(-50%, -50%); 
+      cursor: pointer; 
+    }
+    #station-popup {
+      position: absolute;
+      top: 50%;
+      right: 30px;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.92);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      width: 320px;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .popup-close {
+      float: right;
+      font-size: 28px;
+      cursor: pointer;
+      line-height: 1;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <div class="info-section">
-    <div class="orbital-data">
-      <h4>ISS Orbital Data</h4>
-      <p>Time (UTC+5): <span id="iss-time"></span></p>
-      <p>Speed: <span id="iss-speed"></span> km/h</p>
-      <p>Altitude: <span id="iss-altitude"></span> km</p>
-      <p>Lat: <span id="iss-lat"></span></p>
-      <p>Lon: <span id="iss-lon"></span></p>
-      <p>Distance: <span id="iss-distance"></span> km</p>
-    </div>
-    <div class="orbital-data">
-      <h4>Tiangong Orbital Data</h4>
-      <p>Time (UTC+5): <span id="tg-time"></span></p>
-      <p>Speed: <span id="tg-speed"></span> km/h</p>
-      <p>Altitude: <span id="tg-altitude"></span> km</p>
-      <p>Lat: <span id="tg-lat"></span></p>
-      <p>Lon: <span id="tg-lon"></span></p>
-      <p>Distance: <span id="tg-distance"></span> km</p>
-    </div>
-  </div>
-
-  <!-- Click Popup -->
+  <!-- Click Popup (middle-right) -->
   <div id="station-popup">
     <span class="popup-close" onclick="document.getElementById('station-popup').style.display='none'">×</span>
     <h3 id="popup-title"></h3>
-    <div id="popup-content"></div>
+    <div id="popup-content" style="line-height:1.6;"></div>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
@@ -70,13 +77,17 @@
       style: {
         version: 8,
         sources: {
-          'satellite-tiles': { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256 }
+          'satellite-tiles': {
+            type: 'raster',
+            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+            tileSize: 256
+          }
         },
         layers: [{ id: 'background', type: 'raster', source: 'satellite-tiles' }]
       },
       center: [0, 0],
       zoom: 1.8,
-      interactive: false,   // Map is locked
+      interactive: false,        // Map is completely locked
       renderWorldCopies: true
     });
 
@@ -91,18 +102,38 @@
     const issMarker = new maplibregl.Marker({ element: createMarker('iss.png', 'ISS') }).setLngLat([0,0]).addTo(map);
     const tiangongMarker = new maplibregl.Marker({ element: createMarker('tiangong.png', 'Tiangong') }).setLngLat([0,0]).addTo(map);
 
-    // Click to show popup on right
+    // Popup on right
     function showPopup(title, html) {
       document.getElementById('popup-title').innerHTML = title;
       document.getElementById('popup-content').innerHTML = html;
       document.getElementById('station-popup').style.display = 'block';
     }
 
-    issMarker.getElement().addEventListener('click', () => showPopup('ISS', 'Loading live data...'));
-    tiangongMarker.getElement().addEventListener('click', () => showPopup('Tiangong', 'Loading live data...'));
+    issMarker.getElement().addEventListener('click', () => {
+      showPopup('International Space Station (ISS)', `
+        <p><strong>Live Position:</strong></p>
+        <p>Lat: <span id="p-iss-lat"></span></p>
+        <p>Lon: <span id="p-iss-lon"></span></p>
+        <p>Speed: <span id="p-iss-speed"></span> km/h</p>
+        <p>Altitude: <span id="p-iss-alt"></span> km</p>
+      `);
+      // You can enhance with real values later
+    });
 
-    // Utility functions
-    function normalizeLng(lng) { return ((lng + 180) % 360 + 360) % 360 - 180; }
+    tiangongMarker.getElement().addEventListener('click', () => {
+      showPopup('Tiangong Space Station', `
+        <p><strong>Live Position:</strong></p>
+        <p>Lat: <span id="p-tg-lat"></span></p>
+        <p>Lon: <span id="p-tg-lon"></span></p>
+        <p>Speed: <span id="p-tg-speed"></span> km/h</p>
+        <p>Altitude: <span id="p-tg-alt"></span> km</p>
+      `);
+    });
+
+    // Utilities
+    function normalizeLng(lng) {
+      return ((lng + 180) % 360 + 360) % 360 - 180;
+    }
 
     function getSatellitePosition(tle1, tle2, date) {
       try {
@@ -112,59 +143,88 @@
         const gd = satellite.eciToGeodetic(pv.position, satellite.gstime(date));
         return {
           lng: normalizeLng(satellite.degreesLong(gd.longitude)),
-          lat: satellite.degreesLat(gd.latitude),
-          alt: Math.round(gd.height),
-          vel: Math.round(Math.sqrt(pv.velocity.x**2 + pv.velocity.y**2 + pv.velocity.z**2) * 3600)
+          lat: satellite.degreesLat(gd.latitude)
         };
       } catch(e) { return null; }
     }
 
-    // Simple orbit drawing (solid lines)
-    function drawOrbit(tle1, tle2, color, id) {
+    // Proper wrapped orbit drawing (fixes straight lines)
+    function splitForAntimeridian(coords) {
+      if (!coords.length) return [];
+      const segments = [];
+      let current = [coords[0]];
+      for (let i = 1; i < coords.length; i++) {
+        const prev = coords[i-1];
+        const cur = coords[i];
+        if (Math.abs(cur[0] - prev[0]) > 180) {
+          const boundary = prev[0] > 0 ? 180 : -180;
+          const t = (boundary - prev[0]) / (cur[0] - prev[0] + (cur[0] > prev[0] ? -360 : 360));
+          const interLat = prev[1] + t * (cur[1] - prev[1]);
+          current.push([boundary, interLat]);
+          segments.push(current);
+          current = [[-boundary, interLat], cur];
+        } else {
+          current.push(cur);
+        }
+      }
+      segments.push(current);
+      return segments;
+    }
+
+    function drawWrappedOrbit(tle1, tle2, color, idBase) {
       const coords = [];
       const now = new Date();
       for (let i = 0; i <= 90; i++) {
-        const t = new Date(now.getTime() + i*60*1000);
-        const p = getSatellitePosition(tle1, tle2, t);
-        if (p) coords.push([p.lng, p.lat]);
+        const t = new Date(now.getTime() + i * 60 * 1000);
+        const pos = getSatellitePosition(tle1, tle2, t);
+        if (pos) coords.push([pos.lng, pos.lat]);
       }
-      // Remove old
-      if (map.getSource(id)) map.removeSource(id);
-      if (map.getLayer(id)) map.removeLayer(id);
 
-      map.addSource(id, { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } } });
-      map.addLayer({ id: id, type: 'line', source: id, paint: { 'line-color': color, 'line-width': 3 } });
+      // Clean old layers
+      for (let i = 0; i < 8; i++) {
+        const sid = `${idBase}_${i}`;
+        if (map.getLayer(sid)) map.removeLayer(sid);
+        if (map.getSource(sid)) map.removeSource(sid);
+      }
+
+      const segments = splitForAntimeridian(coords);
+      segments.forEach((seg, idx) => {
+        const sid = `${idBase}_${idx}`;
+        map.addSource(sid, {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: seg }}
+        });
+        map.addLayer({
+          id: sid,
+          type: 'line',
+          source: sid,
+          paint: {
+            'line-color': color,
+            'line-width': 3,
+            'line-opacity': 0.85
+          }
+        });
+      });
     }
 
-    // Live updates
+    // Live marker updates
     async function updateISS() {
       try {
-        const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
-        const d = await res.json();
+        const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+        const d = await resp.json();
         issMarker.setLngLat([d.longitude, d.latitude]);
-
-        // Update panel
-        document.getElementById('iss-lat').textContent = d.latitude.toFixed(2) + '°';
-        document.getElementById('iss-lon').textContent = d.longitude.toFixed(2) + '°';
-        document.getElementById('iss-altitude').textContent = d.altitude.toFixed(1);
-        document.getElementById('iss-speed').textContent = d.velocity.toFixed(0);
       } catch(e) { console.error(e); }
     }
 
     function updateTiangong() {
       const pos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, new Date());
-      if (pos) {
-        tiangongMarker.setLngLat([pos.lng, pos.lat]);
-        document.getElementById('tg-lat').textContent = pos.lat.toFixed(2) + '°';
-        document.getElementById('tg-lon').textContent = pos.lng.toFixed(2) + '°';
-        document.getElementById('tg-altitude').textContent = pos.alt;
-        document.getElementById('tg-speed').textContent = pos.vel;
-      }
+      if (pos) tiangongMarker.setLngLat([pos.lng, pos.lat]);
     }
 
+    // Initialize
     map.on('load', () => {
-      drawOrbit(TLE.ISS.line1, TLE.ISS.line2, '#ff4444', 'iss-orbit');
-      drawOrbit(TLE.TIANGONG.line1, TLE.TIANGONG.line2, '#4488ff', 'tiangong-orbit');
+      drawWrappedOrbit(TLE.ISS.line1, TLE.ISS.line2, '#ff4444', 'iss-orbit');
+      drawWrappedOrbit(TLE.TIANGONG.line1, TLE.TIANGONG.line2, '#4488ff', 'tiangong-orbit');
 
       updateISS();
       updateTiangong();
@@ -172,9 +232,9 @@
       setInterval(updateISS, 5000);
       setInterval(updateTiangong, 2000);
       setInterval(() => {
-        drawOrbit(TLE.ISS.line1, TLE.ISS.line2, '#ff4444', 'iss-orbit');
-        drawOrbit(TLE.TIANGONG.line1, TLE.TIANGONG.line2, '#4488ff', 'tiangong-orbit');
-      }, 90000);
+        drawWrappedOrbit(TLE.ISS.line1, TLE.ISS.line2, '#ff4444', 'iss-orbit');
+        drawWrappedOrbit(TLE.TIANGONG.line1, TLE.TIANGONG.line2, '#4488ff', 'tiangong-orbit');
+      }, 60000);
     });
   </script>
 </body>
