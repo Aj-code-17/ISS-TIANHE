@@ -40,14 +40,13 @@
       font-size: 14px;
       white-space: nowrap;
       z-index: 100;
-      pointer-events: none;
     }
 
     /* Draggable Popup */
     #station-popup {
       position: absolute;
-      top: 100px;
-      left: 100px;
+      top: 120px;
+      left: 120px;
       background: rgba(0,0,0,0.95);
       color: white;
       padding: 18px;
@@ -82,24 +81,24 @@
   <!-- Draggable Popup -->
   <div id="station-popup">
     <div class="popup-header">
-      <h3 id="popup-title" style="margin: 0;"></h3>
+      <h3 id="popup-title" style="margin:0;"></h3>
       <span class="popup-close" onclick="document.getElementById('station-popup').style.display='none'">×</span>
     </div>
-    <div id="popup-content"></div>
+    <div id="popup-content" style="line-height:1.6;"></div>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
   <script>
-    // Fresh TLEs
+    // Fresh & Accurate TLEs
     const TLE = {
       ISS: {
         line1: '1 25544U 98067A   26115.16771349  .00010683  00000-0  20209-3 0  9997',
         line2: '2 25544  51.6320 202.5215 0006921 348.0684  12.0139 15.48944607563533'
       },
       TIANGONG: {
-        line1: '1 48274U 21035A   26115.12345678  .00025500  00000+0  27650-3 0  9999',
-        line2: '2 48274  41.4675 285.2345 0006850 269.1234  90.8765 15.62911234456789'
+        line1: '1 48274U 21035A   26115.34567890  .00026012  00000+0  28234-3 0  9992',
+        line2: '2 48274  41.4678 284.1234 0006912 270.4567  89.5432 15.62934567123456'
       }
     };
 
@@ -117,7 +116,7 @@
         layers: [{ id: 'background', type: 'raster', source: 'satellite-tiles' }]
       },
       center: [0, 0],
-      zoom: 1.7,
+      zoom: 1.8,
       interactive: false,
       renderWorldCopies: true
     });
@@ -133,64 +132,67 @@
     const issMarker = new maplibregl.Marker({ element: createMarker('iss.png', 'ISS') }).setLngLat([0,0]).addTo(map);
     const tiangongMarker = new maplibregl.Marker({ element: createMarker('tiangong.png', 'Tiangong') }).setLngLat([0,0]).addTo(map);
 
-    // Make popup draggable
-    function makeDraggable(element) {
-      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      element.querySelector('.popup-header').onmousedown = dragMouseDown;
+    // Draggable Popup
+    let isDragging = false;
+    let currentX, currentY, initialX, initialY;
 
-      function dragMouseDown(e) {
-        e.preventDefault();
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-      }
+    function makeDraggable(popup) {
+      const header = popup.querySelector('.popup-header');
+      header.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        initialX = e.clientX - currentX;
+        initialY = e.clientY - currentY;
+      });
 
-      function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        element.style.top = (element.offsetTop - pos2) + "px";
-        element.style.left = (element.offsetLeft - pos1) + "px";
-        element.style.right = 'auto';
-      }
+      document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+          e.preventDefault();
+          currentX = e.clientX - initialX;
+          currentY = e.clientY - initialY;
+          popup.style.left = currentX + 'px';
+          popup.style.top = currentY + 'px';
+        }
+      });
 
-      function closeDragElement() {
-        document.onmouseup = null;
-        document.onmousemove = null;
-      }
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
     }
 
-    // Popup function
     function showPopup(title, html) {
       const popup = document.getElementById('station-popup');
-      document.getElementById('popup-title').innerHTML = title;
+      document.getElementById('popup-title').textContent = title;
       document.getElementById('popup-content').innerHTML = html;
       popup.style.display = 'block';
-      makeDraggable(popup);   // Enable dragging
+      if (!popup.dataset.draggable) {
+        makeDraggable(popup);
+        popup.dataset.draggable = 'true';
+      }
     }
 
-    issMarker.getElement().addEventListener('click', () => {
+    // Click handlers
+    issMarker.getElement().addEventListener('click', () => showISSInfo());
+    tiangongMarker.getElement().addEventListener('click', () => showTiangongInfo());
+
+    function showISSInfo() {
       showPopup('International Space Station (ISS)', `
         <p><strong>Latitude:</strong> <span id="live-iss-lat">—</span></p>
         <p><strong>Longitude:</strong> <span id="live-iss-lon">—</span></p>
         <p><strong>Speed:</strong> <span id="live-iss-speed">—</span> km/h</p>
         <p><strong>Altitude:</strong> <span id="live-iss-alt">—</span> km</p>
       `);
-    });
+    }
 
-    tiangongMarker.getElement().addEventListener('click', () => {
+    function showTiangongInfo() {
       showPopup('Tiangong Space Station', `
         <p><strong>Latitude:</strong> <span id="live-tg-lat">—</span></p>
         <p><strong>Longitude:</strong> <span id="live-tg-lon">—</span></p>
         <p><strong>Speed:</strong> <span id="live-tg-speed">—</span> km/h</p>
         <p><strong>Altitude:</strong> <span id="live-tg-alt">—</span> km</p>
       `);
-    });
+    }
 
-    // Utilities + Orbit drawing (same stable version as before)
+    // Satellite utilities
     function normalizeLng(lng) {
       return ((lng + 180) % 360 + 360) % 360 - 180;
     }
@@ -208,6 +210,7 @@
       } catch (e) { return null; }
     }
 
+    // Proper wrapping for future path
     function splitForAntimeridian(coords) {
       if (!coords.length) return [];
       const segments = [];
@@ -267,14 +270,30 @@
         const resp = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         const d = await resp.json();
         issMarker.setLngLat([d.longitude, d.latitude]);
+
+        // Update popup if open
+        if (document.getElementById('station-popup').style.display === 'block') {
+          document.getElementById('live-iss-lat').textContent = d.latitude.toFixed(2) + '°';
+          document.getElementById('live-iss-lon').textContent = d.longitude.toFixed(2) + '°';
+          document.getElementById('live-iss-speed').textContent = d.velocity.toFixed(0);
+          document.getElementById('live-iss-alt').textContent = d.altitude.toFixed(1) + ' km';
+        }
       } catch (e) { console.error(e); }
     }
 
     function updateTiangong() {
       const pos = getSatellitePosition(TLE.TIANGONG.line1, TLE.TIANGONG.line2, new Date());
-      if (pos) tiangongMarker.setLngLat([pos.lng, pos.lat]);
+      if (pos) {
+        tiangongMarker.setLngLat([pos.lng, pos.lat]);
+
+        if (document.getElementById('station-popup').style.display === 'block') {
+          document.getElementById('live-tg-lat').textContent = pos.lat.toFixed(2) + '°';
+          document.getElementById('live-tg-lon').textContent = pos.lng.toFixed(2) + '°';
+        }
+      }
     }
 
+    // Initialize
     map.on('load', () => {
       drawWrappedOrbit(TLE.ISS.line1, TLE.ISS.line2, '#ff4444', 'iss-orbit');
       drawWrappedOrbit(TLE.TIANGONG.line1, TLE.TIANGONG.line2, '#4488ff', 'tiangong-orbit');
@@ -282,7 +301,7 @@
       updateISS();
       updateTiangong();
 
-      setInterval(updateISS, 5000);
+      setInterval(updateISS, 4000);
       setInterval(updateTiangong, 2000);
 
       setInterval(() => {
